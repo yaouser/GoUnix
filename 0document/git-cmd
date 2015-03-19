@@ -1,0 +1,234 @@
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+1.Git  env set
+**git config --global user.name "*************"
+**git config --global user.email "************"
+**git config --global branch.autosetuprebase always
+**git config --global color.ui true
+**git config --global color.status auto
+**git config --global color.branch auto
+**git config --global core.editor vim
+**git config --global merge.tool vimdiff
+**git config --list
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2.Git create
+**groupadd dev
+**useradd -G devs -d /home/gituser -m -s /bin/bash gituser
+**passwd gituser
+**pwd
+**mkdir project
+**cd project
+**git --bare init
+**ssh-keygen
+**ssh-copy-id -i ~/.ssh/id_rsa.pub **@**
+**git init
+**git status -s
+**git add .
+**git commit -m 'Initial commit'
+**git log
+**git remote add origin **@**:project.git
+**git push origin master
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+3.Git clone
+**git clone **@**:project
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+4.Git change
+**git status -s
+**git add **.*
+**git status -s
+**git commit -m '***************'
+**git log
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+4.Git examine
+**git log
+**git show ********************.......
+**git diff
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+5.Git  commit
+**git log
+**git status -s
+**git add **.c
+**git status -s
+**git log
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+6.Git push
+**git log
+**git show *********.......
+**git push origin master
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+7.Git update
+**git cloen **@**:project
+**cd project
+**git log
+**git diff
+**git status -s
+**git add *.c
+**git log
+**git push origin master
+**git diff
+**git status -s
+**git add *.c
+**git log
+**git push origin master
+**git pull
+**git log
+**git push origin master
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+8.Git hide
+**git status -s
+**git stash
+**git status -s
+**git stash list
+**git status -s
+**git stash pop
+**git status -s
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+9.Git move
+**git mv **.c **/
+**git status -s
+**git commit -m "Modified directory structure"
+**git pull
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+10.Git rename
+**git mv **.c ***.c
+**git commit -a -m 'Added Makefile and renamed'
+**git push origin master
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+11.Git delete
+**git rm **.c
+**git commit -a -m "Removed file"
+**git push origin master
++++++++++++++++++++++++++++++++++++++++++++++++++++
+12.Git fixed bug
+**rm *.c
+**git status -s
+**git checkout *.c
+**git status -s
+**git add *.c
+**git checkout HEDD -- *.c
+**git status -s
+**cat ./git/refs/heads/master
+**git log -2
+**git reset --soft HEAD~
+**cat .git/refs/heads/master
+**git log -2
+**head -2 *.c
+**git status -s
+**git add *.c
+**git status
+**git reset --hard ************
+**git status -s
+**head -2 *.c
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+13.Git tag
+**git tag -a '****' -m '*************' HEAD
+**git push origin tage v1.0
+**git pull
+**git tag -l
+**git show v1.0
+**git tag
+**git tag -d v1.0
+**git push origin :v1.0
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+14.Git patch
+**git status -s
+**git add *.c
+**git commit -m "Added"
+**git format-patch -1
+**git diff
+**git status -s
+**git apply ****.patch
+**git status -s
+**git diff
++++++++++++++++++++++++++++++++++++++++++++++++++++
+15.Git branch
+**git branch new_branch
+**git branch
+**git checkout new_branch
+**git branch
+**git checkout -b test_branch
+**git branch
+**grt branch -D test_branch
+**git branch
+**git branch -m new_branch wchar_support
+**gti branch
+**git diff
+**git status -s
+**git add *.c
+**git commit -m 'Added'
+**git push origin wchar_support
+**git log origin/wchar_support -2
+**git branch
+**git merge origin/wchar_support
+**git log -1
+**git push origin master
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+16.Git confilct
+**git branch (wchar_support)
+**git diff
+**git status -s
+**git add *.c
+**git commit -m 'Changed'
+**git push origin wchar_suport
+**git branch(master)
+**git diff
+**git status -s
+**git add *.c
+**git commit -m 'Changed1'
+**git push origin master
+**git branch
+**git diff
+**git status -s
+**git add *.c
+**git commit -m 'Added'
+**git push origin wchar_support
+**git pull origin wchar_support
+**git diff
+**git commit -a -m 'Resolved confilict'
+**git pull origin wchar_support
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+17.Git clone
+**git clone https://github.com/user/project.git
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+18.Git remote
+**git remote
+**git remote -v
+**git clone -o myproject https://github.com/user/project
+**git remote show **host**
+**git remote add **host**
+**git remote rm **host**
+**git remote rename **host** **host1**
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+19.Git fetch
+**git fetch  **host**
+**git fetch **host**  **branch**
+**git fetch origin mastet
+**git branch -r
+**git branch -a 
+**git checkout -b newBranch origin/master
+**git merge origin/master
+**git rebase origin/master
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+20.Git pull
+**git pull origin next:master
+**git pull origin next
+**git fetch origin
+**git merge origin/next
+**git branch --set-upstream master origin/next
+**git pull origin
+**git pull
+**git pull --rebase **remotehost**  **hostbranch**:**localbranch**
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+21.Git push
+**git push **remotehost** **localbranch**:**remotebranch**
+**git push origin master
+**git push origin :master
+**git push origin --delete master
+**git push origin
+**git push
+**git push -u origin master
+**git config --global push.default matching
+**git config --global push.default simple
+**git push --all origin
+**git push --force origin
+**git push origin --tags
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
