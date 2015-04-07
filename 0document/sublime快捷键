@@ -1,0 +1,44 @@
+﻿==============================================================
+ctrl+m		跳转到对应的括号
+ctrl+f		查找
+ctrl+h		查找替换
+ctrl+r		前往代码的方法或类
+ctrl+p		搜索项目中的文件
+ctrl+g		跳转到第几行
+ctrl+e		形成HTML中的标签
+ctrl+l		选择行，重复可依次增加选择下一行
+ctrl+d		选择单词，重复可依次选择下一个相同的单词
+ctrl+i		展示面板
+ctrl+q		记录和停止宏(ctrl+shitf+q:播放)
+ctrl+b		build
+ctrl+t		颠倒transpose
+ctrl++		增大字体
+ctrl+-		减小字体
+ctrl+/		当前行注释状态切换(ctrl+shift+/当前位置注释切换)
+ctrl+`		python接口
+ctrl+;		展示文档中的关键内容 跳转该关键字 并显示所有同项
+ctrl+[		缩进
+ctrl+]		不缩进
+ctrl+a		全选
+ctrl+c 		复制
+ctrl+v		粘贴
+ctrl+x		剪切
+ctrl+n		新建文件
+ctrl+s 		保存 ctrl+shitf+s 另存为
+ctrl+w		关闭
+ctrl+z		撤销
+ctrl+y		重复或重做
+ctrl+left	按\w规则跳跃 alt+left 单词 shitf+left 移动并选择
+ctrl+right	按\w规则跳跃 alt+right 单词 shitf+right 移动并选择
+ctrl+up		滚动行
+ctrl+down	滚动行
+ctrl+tab	打开文档之间切换
+ctrl+f2		标签状态切换 f2 下一个标签 shift+f2 上一个标签
+************ctrl+shitf+f2 清除所有标签 alt+f2 选中所有标签
+ctrl+f3		下一个匹配项 f3 下一个匹配项 shitf+f3 上一个匹配项
+ctrl+f4		关闭文件
+ctrl+f9		行排序 f9 行排序
+==============================================================
+ctrl+k,ctrl+d 		所选单词相同项的下一个
+ctrl+k,ctrl+u 		大写
+ctrl+k,ctrl+l 		小写
