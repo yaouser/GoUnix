@@ -1,0 +1,97 @@
+============================================================
+Go语言中自带有一个轻量级的测试框架testing和自带的go test命令
+来实现单元测试和性能测试，可以针对这个框架写相应函数的测试用
+例以及压力测试用例。
+============================================================
+由于Go test命令只能在一个相应的目录下执行所有的文件，所以我
+新建一个文件夹，这样我们所有的代码和测试代码都在这一个目录。
+-文件名必须以_test.go结尾，这样go test才会执行到相应的代码。
+-必须要导入测试包，import testing。
+-所有的测试用例函数必须是Test开头。
+-测试用例会按照源代码中写的顺序依次执行。
+-测试函数TestXxx()的参数是testing.T，我们可以使用该类型来记
+录错误或者是测试状态。
+-测试格式：func TestXxx (t *testing.T)，Xxx部分可以为任意的
+字母数字组合，但是首字母不能是小写字母。
+-函数中通过调用testing.T的Error Errorf FailNow Fatal FatalIf
+方法，说明测试不通过，调用Log方法用来记录测试的信息。
+***********************************************************
+file:gotest.go
+***********************************************************
+package gotest
+
+import (
+	"errors"
+)
+
+func Division(a,b float64) (float64, error) {
+	if b == 0 {
+		return 0, errors.New("除数不能为0")
+	}
+
+	return a/b, nil
+}
+**********************************************************
+file:gotest_test.go
+**********************************************************
+package gotest
+
+import (
+	"testing"
+)
+
+func Test_Division_1 (t *testing.T) {
+	//try a unit test on function
+	if i,e:=Division(6,2);i!=3||e!=nil {
+		//如果不是如预期的那么就报错
+		t.Error("除法函数测试没通过")
+	} else {
+		//记录一些你期望记录的信息
+		t.Log("第一个测试通过了")
+	}
+}
+
+func Test_Division_2(t *testing.T) {
+	t.Error("就是不通过")
+}
+============================================================
+压力测试用来检测函数（方法）的性能，和编写单元功能测试的方法
+类似。但是应注意以下几点：
+-压力测试用例必须遵循如下格式，其中XXX可以任意，但是首字母不
+能是小写字母。
+func BenchmarkXXX(b *testing.B) { ... }
+-go test不会默认执行压力测试的函数，如果要执行压力测试需要带
+上参数。-test.bench，语法：-test.bench="test_name_regex"，例
+如go test -test.bench=".*"表示测试全部的压力测试函数。
+-在压力测试中，在循环体内使用testing.B.N，以使测试正常运行。
+-文件名必须以_test.go结尾。
+************************************************************
+file:webbench_test.go
+exec cmd:go test -file webbench_test.go -test.bench=".*"
+************************************************************
+package gotest
+
+import (
+	"testing"
+)
+
+func Benchmark_Division(b *testing.B) {
+	for i:=0; i<b.N; i++ { //use b.N for looping
+		Division(4,5)
+	}
+}
+
+func Benchmark_TimeConsumingFunction(b *testing.B) {
+	//调用该函数停止压力测试的时间计数
+	b.StopTimer()
+
+	//做一些初始化的工作，例如读取文件数据，数据库连接之
+	//类的，这样这些时间不影响我们测试函数本身的性能
+
+	//重新开始时间
+	b.StartTimer()
+	for i:=0; i<b.N; i++ {
+		Division(4,5)
+	}
+}
+============================================================
