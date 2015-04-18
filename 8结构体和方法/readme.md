@@ -3,5 +3,5 @@
 ##**import "./pack_directory/pack_name"**
 ##导入外部包后，就可以引用并访问外部包的结构体的字段和构建的方法。
 ##格式如下：
-##**pack_name.Struct_name
+##**pack_name.Struct_name**
 #注意：可引用的字段和方法名首字母必须大写，才能引用。
