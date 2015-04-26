@@ -1,0 +1,353 @@
+============================================================================
+#!/bin/bash (backup0.sh)
+ssh -X -i ~/.ssh/user.key user@ip
+============================================================================
+#!/bin/bash (backup1.sh)
+FROM=/home/user
+COPYTO=user@ip:~/data/private/
+rsync "$@" -av --delete $FROM $COPYTO
+============================================================================
+#!/bin/bash (hello0.sh)
+message = "hello"
+
+if test "$message" = "hello" ; then   #通过test返回1或0进行判断
+	echo "hello world"
+fi
+
+if [ "$message" = "hello" ] ; then    #test的另外一种写法
+	echo "hello world"
+fi
+
+if [[ $message == "hello" ]] ; then   #比较常用的比较方法
+	echo "hello world"
+fi
+============================================================================
+#!/bin/bash -x (hello1.sh)            #整个shell文件打开调试模式
+message = "hello"
+read name
+echo "$message $name"
+============================================================================
+#!/bin/bash (hello2.sh)
+set -x                                #打开shell的调试模式
+message = "hello"
+read name
+set +x                                #关闭shell的调试模式
+echo "$message $name"
+============================================================================
+#!/bin/bash (step.sh)
+first = $1
+steup = $2
+last = $3
+c = $first
+
+while [[ $c -le $last ]] ; do
+	echo $c
+	c = $((c+step))
+done
+
+#-eq (equal)		-e (存在)
+#-ne (not equal)	-d (目录)
+#-lt (less than)	-h (符号链接)
+#-le (less or equal)	-f (文件)
+#-gt (greater than)	-ge (greater or equal)
+============================================================================
+#!/bin/bash (params.sh)
+echo $0
+
+for item in "$@" ; do
+	echo $item
+done
+============================================================================
+#!/bin/bash (shift.sh)
+while [[ "$@" != "" ]] ; do
+	echo "$@"
+	shift                         #shift后跟移动位置参数的个数
+done
+============================================================================
+#!/bin/bash (menu1.sh)
+menu = ("Aplle" "Grape" "Orange")
+
+PS3 = "喜欢哪个？"                    #PS3是select语句内变量专用于指定提示
+select item in ${menu[@]}; do
+	echo "喜欢$item"
+done
+============================================================================
+#!/bin/bash (menu2.sh)
+servers = (
+		"server1.example.com"
+		"user1@server2.example.com"
+		"root@server3.example.com"
+	   )
+
+PS3 = "连接服务器？"
+select server in "${servers[@]}" ; do
+	echo "连接$server"
+	ssh "$server"
+done
+
+============================================================================
+#!/bin/bash (menu3.sh)
+servers = (
+                "server1.example.com"
+                "user1@server2.example.com"
+                "root@server3.example.com"
+           )
+
+PS3 = "连接服务器？"
+select server in "${servers[@]}" ; do
+	if [[ -z $server ]] ; then
+		echo "请选择菜单上的数字"
+		continue
+	fi
+	if [[ $server == "QUIT" ]] ; then
+		echo "退出"
+		exit 0
+	fi
+	echo "连接$server"
+	ssh "$server"
+done
+============================================================================
+#!/bin/bash (for.sh)
+servers = (
+                "server1.example.com"
+                "user1@server2.example.com"
+                "root@server3.example.com"
+           )
+
+for server in ${servers[@]}; do
+	ssh "$server" "$@"
+done
+============================================================================
+#!/bin/bash (while1.sh)
+while read server; do
+	ssh -n $server "$@"
+done
+
+#读取文件servers ./sh free < servers.txt
+
+============================================================================
+#!/bin/bash (while2.sh)
+while read servers; do
+	ssh -n "$servers" "$@" 2>&1 | sed "s/^/$server:/"
+done
+
+#一台一台执行ssh命令
+
+============================================================================
+#!/bin/bash (while3.sh)
+while read server ; do
+	ssh -n "$server" "$@" 2>&1 | sed "s/^/$server:/" &
+done
+wait
+
+#修改后将ssh命令运行于后台，最后通过wait命令来等待所有命令的结束
+#由于并行执行，输出的“嵌套”后要使用grep检出
+#./sh "vmstat 1 5" < servers.txt > output.txt
+
+============================================================================
+#!/bin/bash (while4.sh)
+file = $1
+shift
+
+while read servers; do
+	ssh -n "$server" "$@" 2>&1 | sed "s/^/$server:/" &
+done < "$file"
+wait
+
+#./sh servers.txt free
+#为了将所有剩余的参数传递给ssh命令需加一个shift用于丢弃指定文件名的$1
+
+============================================================================
+#!/bin/bash (ps1.sh)
+while [[ true ]] ; do
+	pgrep -x httpd > /dev/null/ 2>&1
+	rc = $?
+
+	if [[ $rc -ne 0 ]]; then
+		logger -t "开始" "httpd is down"
+	fi
+	sleep 10 
+done
+============================================================================
+#!/bin/bash (ps2.sh)
+
+#status = ""
+
+if pgrep -x httpd > /dev/null 2>&1; then
+	status = "up"
+else
+	status = "down"
+fi
+
+while [[ true ]] ; do
+	pgrep -x httpd > /dev/null/ 2>&1
+        rc = $?
+
+	if [[ $rc -eq 0 && status != "up" ]] ; then
+		status = "up"
+		logger -t "开始" "httpd is up"
+	fi
+	if [[ $rc -ne 0 && $status != "down" ]]; then
+		status = "down"
+		logger -t "开始" "httpd is down"
+	fi
+	sleep 10
+done
+
+============================================================================
+#!/bin/bash (ps3.sh)
+function monitor {
+			pgrep -x $1 > /dev/null 2>&1
+			return $?
+		}
+
+if monitor "htpp" ; then
+	status = "up"
+else
+	status = "down"
+fi
+
+while [[ true ]]; do
+	monitor "httpd"
+	rc = $?
+	if [[ $rc -eq 0 && $status != "up" ]]; then
+		status = "up"
+		logger -t "开始" "httpd is up."
+	fi
+	if [[ $rc -ne 0 && $status != "down" ]]; then
+		status = "down"
+		logger -t "开始" "httpd is down"
+	sleep 10 
+done
+
+============================================================================
+#!/bin/bash (snapshot.sh pre)
+TMPFILE = /tmp/snapshot.log.$$
+#以rw挂载至/snapshot
+#执行rsync <-----在此期间的所有输出都写入系统日志和$TMF中
+#以ro再次挂载至/snapshot
+iconv -f utf8 -t iso-*-* $TM | mail -s "$SUBJECT" admin@example.com
+rm $TMPFILE
+
+使用rsync命令来进行差异备份本身不是很难，但是像这种进行批处理的shell脚本，
+还需要特别注意日志的获取，由于cron任务每晚都会自动运行，因此，如果不取的日志
+信息的话，可能谁也不会注意到有错误发生，一旦发生紧急情况，如果没有必要快照那
+就于事无补了。
+============================================================================
+如何将输出同时写入系统日志和临时文件中
+date 2>&1 | logger -t "header"
+date > logfile.txt 2>&1
+难道两个date的输出不能同时重定向到logger命令和文本文件吗？
+这时就用到了tee命令
+
+date 2>&1 | tee logfile.txt | logger -t "head"
+
+                 流动的管道
+--------------------------------------------->
+date---------------> tee ---------------logger
+                      |
+                      |输出文件
+                     \|/
+                  logfile.txt
+
+如果tee命令不对既有文件进行覆盖的话就用tee -a
+
+将多条命令输出汇总到这条管道可以使用{}将一系列命令括起来再汇总起来指定重定向
+{
+	date
+	uname -a 
+	free
+} > logfile.txt
+
+============================================================================
+#!/bin/bash (snapshot.sh finish)
+TMPFILE = /tmp/snapshot.log.$$
+
+{
+	echo "==Rsync from /data/to /snapshot/:$(date)"
+	mount -o rw,remount /dev/sdc
+	rsync -av /data/ /snapshot/
+	rc = $?
+	mount -o ro,remount /dev/sdc
+	if [[ $rc -eg 0 ]]; then
+		echo "==snapshot succeeded:$(date)"
+		SUBJECT = "Snapshot report (Succeeded)"
+	else
+		echo "==Snapshot failed with rc = $rc:$(date)"
+		SUBJECT = "Snapshot report (Failed)"
+	fi
+} 2>&1 | tee $TEMPFILE | logger -t "Snapshot"
+
+icon ...
+rm ...
+
+============================================================================
+#!/bin/bash (snapshot.sh done)
+
+SERVER = "root@example.com "                            #Backup server
+LOCAL = "/home/user/documents/"                         #Local directory
+REMOTE = "/home/user/backup/documents"                  #Remote directory
+
+LOCAL_TSFILE = "/home/user/local_backup_timestamp       #Lts file
+REMOTE_TSFILE = "/home/user/remote_backup_timestamp     #Rts file
+
+function confirm {
+	echo -n "$1"
+	read answer
+
+	if [[ $answer != "g" ]]; then
+		echo "结束"
+		exit 0
+	fi
+}
+
+function backup {
+	rsync -n -av --delete $LOCAL ${SERVER}:${REMOTE}.
+	confirm "确定要备份本地文件吗？（Y/N）"
+	rsync -av --delete $LOCAL ${SERVER}:${REMOTE}.
+	ts_local = $(date +%Y%M%d%H%M%S)
+	echo -n $ts_local > $LOCAL_TSFILE
+	ssh $SERVER "echo -n $ts_local > $REMOTE_TSFILE"
+}
+
+function download {
+	rsync -n -av --delete ${SERVER}:${REMOTE} ${LOCAL}
+	confirm "确定要下载远程文件吗？（Y/N）"
+	rsync -av --delete ${SERVER}:${REMOTE} $LOCAL
+	ts_local = $(date %Y%M%d%H%M%S)
+	echo -n $ts_local > $LOCAL_TSFILE
+}
+
+ts_remote = $(ssh $SERVER "cat $REMOTE_TSFILE")
+ts_local = $(cat $LOCAL_TSFILE)
+
+$ts_remote '' echo "远程文件的时间戳：$ts_remote"
+$ts_local '' echo "本地文件的时间戳：$ts_local"
+
+echo "---------------------------------"
+
+if [[ $1 == "backup" ]] ; then
+	echo "强制备份"
+	backup
+	exit 0
+fi
+
+if [[ $1 == "download" ]] ; then
+	echo "强制下载"
+	download
+	exit 0
+fi
+
+if [[ $ts_local -ge $ts_remote ]] ; then
+	echo "本地文件已更新"
+	backup 
+	exit 0
+fi
+
+if [[ $ts_local -lt $ts_remote ]] ; then
+	echo "远程文件已更新"
+	download
+	exit 0
+fi
+
+============================================================================
