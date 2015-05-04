@@ -351,3 +351,23 @@ if [[ $ts_local -lt $ts_remote ]] ; then
 fi
 
 ============================================================================
+#!/bin/bash (备份小脚本)
+
+a = (/var/log/httpd/ /root/nginx/)
+
+length = ${#a[*]}
+d = `date +%F`
+bak_dir = '/data/'
+del_file = `date -d '-7 days' +%F`
+
+for ((i=0;i<$length;i++)); do
+	if [ -e $bak_dir`basename ${a[$i]}`.${del_file}.tar.bz2 ]; then
+		rm -rf $bak_dir`basename ${a[$i]}`.${del_file}.tar.bz2
+	fi
+
+	if [ -d ${a[$i]} ]; then
+		cd ${a[$i]} && tar cjf `basename ${a[$i]}`.$d.tar.bz2 && mv `basename ${a[$i]}`.$d.tar.bz2 $bak_dir
+	fi
+done
+============================================================================
+============================================================================
