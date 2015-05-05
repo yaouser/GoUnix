@@ -1,0 +1,90 @@
+============================================================================
+**字段操作**
+Go语言的模板通过{{}}来包含需要在渲染时被替换的字段，{{.}}表示当前的对象。
+如果要访问当前对象的字段，通过{{.FieldName}}可以调用，需要注意的是，这个字段
+必须是导出的（字段首字母必须大写）。
+**输出嵌套字段内容**
+{{range ...}}....{{end}}
+这个和Go语言中的range类似，循环操作数据。如，当针对一个对象的字段中还有嵌套
+字段的对象时，就可以用此来循环输出。
+{{with ...}}....{{end}}
+这个操作是指当前对象的值，类似于上下文的概念。
+**条件处理**
+{{if ``}}....{{end}}
+{{if `...`}}....{{else}}....{{end}}
+{{....|....}}
+if里面无法使用条件判断 == ，这样的判断是不正确的，if里面只能是bool值。
+在Go语言里面任何{{}}里的都是pipe（管道）数据。管道前后使用函数处理比较方便。
+如果pipeline（管道）为空，if就认为是false。
+**模板变量**
+$variable := pipeline
+{{with $x := "output" | printf "%q"}}{{$x}}{{end}}
+{{with $x := "output"}}{{printf "%q" $x}}{{end}}
+{{with $x := "output"}}{{$x | printf "%q"}}{{end}}
+我们在模板使用的过程中需要定义一些局部变量，在一些操作中申明局部变量，例如在
+使用if with range过程中申明的局部变量的作用域是{{end}}之前。
+**模板函数**
+模板在输出对象的字段时，采用了fmt包把对象转化成字符串。但有时我们需要一些复
+杂的功能，这时我们写成一些自定义的函数来实现。
+每一个模板函数都有一个唯一值的名字，然后与一个Go语言函数关联。
+例如，我们定义了一个自定义的函数FuncnameWith，可以通过下面的方式注册这个函数。
+t.Funcs(template.FuncMap{"funcname":FuncnameWith})
+**Must操作**
+模板里面有一个函数Must，它的作用是检测模板是否正确，例如大括号是否匹配，注释
+是否正确关闭，变量是否正确书写。
+**嵌套模板**
+定义  {{define "子模板名称"}}html内容{{end}}
+调用  {{template "子模板名称"}}
+我们开发Web应用的时候，经常会遇到一些模板有些部分是固定不变的，可以抽取出来
+作为一个独立的部分。
+template.ParseFiles把所有的嵌套模板全部解析到模板里面，其实每一个定义的
+{{define}}都是一个独立的模板，他们相互独立，是并行存在的关系，内部存储的是类
+似map的一种关系（key是模板的名称，value是模板的内容），然后通过ExecuteTemplate
+来执行相应的子模板内容。
+
+Go语言模板的使用
+
+在Go语言中，我们使用template包来进行模板处理，使用类似New，Parse，ParseFile，
+Execute等方法从文件或者字符串新建，解析和加载模板。
+
+我通常用到的模板函数如下
+New-->Parse/ParseFile-->Must-->Execute/ExecuteTemplate
+============================================================================
+字段操作
+========
+package main
+
+import (
+	"html/template"
+	"os"
+)
+
+func main() {
+	t := template.New("fieldname example")	//新建
+	t,_ = t.Parse("hello {{.UserName}}!")	//解析
+	p := Person{Username:"Yaouser"}
+	t.Execute(os.Stdout,p)			//执行
+}
+============================================================================
+嵌套字段输出
+============
+package main
+
+import (
+	"html/template"
+	"os"
+)
+
+type Friend struct {
+	Fname	string
+}
+
+type Person struct {
+	UserName	string
+	Emails		[]string
+	Friends		[]*Friend
+}
+
+func main() {
+	
+============================================================================
