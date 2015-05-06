@@ -86,5 +86,194 @@ type Person struct {
 }
 
 func main() {
+	f1 := Friend{Fname: "minux.ma"}
+	f2 := Friend{Fname: "xiaoming"}
+	t := template.New("fieldname example")
+	t,_ = t.Parse(`hello {{.UserName}}!
+		{{range .Emails}}
+			an email {{.}}
+		{{end}}
+		{{with .Friends}}
+		{{range .}}
+			my friend name is {{.Fname}}
+		{{end}}
+		{{end}}
+		`)
+	p := Person{UserName: "Yaouser",
+		Emails: []string{"yaouser@gmail.com","yaouser@163.com"},
+		Friends: []*Friend{&f1,&f2}}
+	t.Execute(os.Stdout, p)
+}
+============================================================================
+条件处理
+========
+package main
+
+import (
+	"os"
+	"text/template"
+)
+
+func main() {
+	tEmpty := template.New("template test")
+	tEmpty = template.Must(tEmpty.Parse("空 pipeline if demo: {{if ``}}不会输出。{{end}}\n"))
+	tEmpty.Execute(os.Stdout, nil)
+
+	tWithValue := template.New("template test")
+	tWithValue = template.Must(tWithValue.Parse("不为空 pipeline if demo: {{if `anything`}}我有内容，会输出。{{end}}\n"))
+	tWithValue.Execute(os.Stdout, nil)
+
+	tIfElse := template.New("template test")
+	tIfElse = template.Must(tIfElse.Parse("if-else demo:{{if `anything`}}if部分{{else}}else部分{{end}}\n"))
+	tIfElse.Execute(os.Stdout, nil)
+}
+============================================================================
+模板函数
+========
+package main
+
+import (
+	"fmt"
+	"html/template"
+	"os"
+	"string"
+)
+
+type Friend struct {
+	Fname string
+}
+
+type Person struct {
+	UserName string
+	Emails []string
+	Friends []*Friend
+}
+
+func EmailDealWith(args ...interface{}) string {
+	ok := false
+	var s string
 	
+	if len(args) == 1 {
+		s, ok = args[0].(string)
+	}
+	
+	if !ok {
+		s = fmt.Sprint(args...)
+	}
+
+	//找到@符号
+	substrs := strings.Split(s, "@")
+	if len(substrs) != 2 {
+		return s
+	}
+
+	//用at替换符号@
+	return (substrs[0] + " at " + substrs[1])
+}
+
+func main() {
+	f1 := Friend{Fname: "minux.ma"}
+	f2 := Friend{Fname: "yaouser"}
+	t := template.New("fieldname example")
+	t = t.Funcs(template.FuncMap{"emailDeal": EmailDealWith})
+	t,_ = t.Parse(`hello {{.UserName}}!
+		{{range .Emails}}
+			an emails {{.|emailDeal}}
+		{{end}}
+		{{with .Friends}}
+			my friend name is {{.Fname}}
+		{{end}}
+		{{end}}
+		`)
+	p := Person{UserName: "yaouser",
+		Emails: []string{"yaouser@gmail.com","yaouser@163.com"},
+		Friends: []*Friend{&f1,&f2}}
+	t.Execute(os.Stdout, p)
+}
+================================
+注意：模板包里面有内置实现的函数
+================================
+var builtins = FuncMap {
+	"and":		and,
+	"call":		call,
+	"html":		HTMLEscaper,
+	"index":	index,
+	"js":		JSEscaper,
+	"len":		length,
+	"not":		not,
+	"or":		or,
+	"print":	fmt.Sprint,
+	"printf":	fmt.Sprintf,
+	"println":	fmt.Sprintln,
+	"urlquery":	URLQueryEscaper,
+}
+============================================================================
+Must操作
+========
+package main
+
+import (
+	"fmt"
+	"text/template"
+)
+
+func main() {
+	tOk := template.New("first")
+	template.Must(tOk.Parse(" some static text /* and a comment */"))
+	fmt.Println("The first one parsed OK.")
+
+	template.Must(template.New("second").Parse("some static text {{.Name}}"))
+	fmt.Println("The second one parsed OK.")
+
+	fmt.Println("The next one ought to fail.")
+	tErr := template.New("check parse error with Must")
+	template.Must(tErr.Parse(" some static text {{ .Name }}"))
+}
+============================================================================
+header.tmpl
+===========
+{{define "header"}}
+<html>
+<head>
+	<titile>演示信息</title>
+</head>
+<body>
+============
+content.tmpl
+============
+{{define "context"}}
+{{template "header"}}
+<h1>演示嵌套</h1>
+<ul>
+	<li>嵌套使用define定义子模板</li>
+	<li>调用使用template</li>
+</ul>
+{{template "footer"}}
+{{end}}
+===========
+footer.tmpl
+===========
+{{define "footer"}}
+</body>
+</html>
+{{end}}
+============================================================================
+package main
+
+import (
+	"fmt"
+	"os"
+	"text/template"
+)
+
+func main() {
+	s1,_ := template.ParseFiles("header.tmpl","content.tmple","footer.tmpl")
+	s1.ExecuteTemplate(os.Stdout,"header",nil)	//输出header部分
+	fmt.Println()
+	s1.ExecuteTemplate(os.Stdout,"content",nil)	//输出全部3个文件
+	fmt.Println()
+	s1.ExecuteTemplate(os.Stdout,"footer",nil)	//输出footer部分
+	fmt.Println()
+	s1.Execute(os.Stdout,nil)			//没有任何输出
+)
 ============================================================================
