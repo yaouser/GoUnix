@@ -1,9 +1,11 @@
 #说明：
-这个项目总的来说是介绍Go语言和学习Go语言的。
+这个项目总的来说是介绍Go语言和学习Go语言的，并且是基于linux环境。
 ##[0document](https://github.com/yaouser/Go-basic-code/tree/master/0document)
 此目录是一些介绍git和sublime工具的使用方法。git是个软件版本控制工具，主要
-是一些在linux下的一些实用命令。sublime是一个比较流行的代码编辑器，主要是
-一些高效编程的快捷键的说明。
+是一些在linux下的一些实用命令，这样可以让你托管一些自已有趣的Go项目代码。
+sublime是一个比较流行的代码编辑器，主要是一些高效编程的快捷键的说明，它可以
+帮助你快速的阅读和编写Go代码。还有一些关于linux和shell的一些有趣的文档和shell
+脚本程序，能够让你更好的理解linux命令行环境。
 ##[2Go技巧](https://github.com/yaouser/Go-basic-code/tree/master/2Go技巧)
-此目录介绍一些Go语言的小技巧。
+此目录介绍一些Go语言的小技巧，这些技巧会让你更好的理解Go语言。
 ##其它目录就是依次由浅入深的介绍Go语言特性。
