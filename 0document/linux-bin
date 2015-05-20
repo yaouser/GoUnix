@@ -1,0 +1,64 @@
+=============================================================================
+linux中的.bin文件和.run文件是如何制作的呢？
+其实这样的文件只是shell脚本安装程序和本身的运行程序结合而成，前半部分是shell
+安装程序，后半部分是linux上的运行程序。当具备这两个程序文件时，通过linux的cat
+命令将其合并成一个文件。也就是说，这样的文件前半部分是脚本后半部分是二进制文
+件，这其中最重要的是要想办法在脚本中将二进制文件从.bin文件里分离出来。
+=============================================================================
+1.制作一个压缩程序文件hello.tar.bz2
+
+tar jcvf hello.tar.bz2 hello
+
+2.写一个shell安装脚本程序文件install.sh
+
+#!/bin/bash
+lines = 7
+#这个值是指这个脚本的行数加1，这个脚本共有6行
+tail +$lines $0 > /tmp/hello.tar.bz2
+#$0表示脚本本身，该命令用来把从$lines开始的内容写入/tmp的hello.tar.bz2文件里
+tar jxvf /tmp/hello.tar.gz
+cp hello /bin
+exit 0
+
+3.通过cat命令连接安装脚本install.sh和hello.tar.bz2
+
+cat install.sh hello.tar.bz2 > install.run
+
+4.使用该.bin或.run文件
+
+sh install.run
+=============================================================================
+制作一个安装apache mysql安装脚本包
+1.将远吗包先打包
+tar zcvf packages.tar.gz httpd.tar.bz2 mysql.tar.gz
+2.编写脚本
+#!/bin/bash
+dir_tmp = /root/installapache
+mkdir $dir_tmp
+sed -n -e '1,/^exit 0$/!p' $0 > "${dir_tmp}/packages.tar.gz" 2 > /dev/null
+cd $dir_tmp
+tar zxf packages.tar.gz
+tar jxf httpd.tar.bz2
+cd httpd
+./configure
+make
+make install
+cd $dir_tmp
+tar zxf mysql.tar.gz
+cd mysql
+./configure
+make 
+make install
+exit 0
+注意：在./configure命令后面可以增加自定义各种各样的配置选项，而脚本中的sed命
+令那一行关键就是将二进制文件从bin文件中分离出来用的。
+sed -n -e '1,/^exit 0$/!p' $0 > "${dir_tmp}/packages.tar.gz" 2 > /dev/null
+     |  |  |  |      |  |
+     |  |  |  |      |  --->p表示打印，!p表示不打印
+     |  |  |  |      ------>匹配该行最后的位置
+     |  |  |  ------------->匹配该行开头位置
+     |  |  ---------------->从该文件的第一行开始进行匹配
+     |  -------------------> -e选项是将多个命令结合起来
+     ----------------------> -n选项后，除非明确要打印，否则不打印任何内容
+=============================================================================
+=============================================================================
