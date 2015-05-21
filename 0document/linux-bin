@@ -61,4 +61,99 @@ sed -n -e '1,/^exit 0$/!p' $0 > "${dir_tmp}/packages.tar.gz" 2 > /dev/null
      |  -------------------> -e选项是将多个命令结合起来
      ----------------------> -n选项后，除非明确要打印，否则不打印任何内容
 =============================================================================
+#!/bin/bash
+WS_PATH=/usr/local
+LOG_PATH=/var/log
+WS_NAME=lbxws
+esc="\033";blackf="${esc}[30m";redf="${esc}[31m";greenf="${esc}[32m";yellowf="${esc}[33m";bluef="${esc}[34m";purplef="${esc}[35m";
+cyanf="${esc}[36m";whitef="${esc}[37m";blackb="${esc}[40m";redb="${esc}[41m";greenb="${esc}[42m";yellowb="${esc}[43m";blueb="${esc}[44m";purpleb="${esc}[45m";
+cyanb="${esc}[46m";whiteb="${esc}[47m";boldon="${esc}[1m";boldoff="${esc}[22m";italicson="${esc}[3m";italicsoff="${esc}[23m";ulon="${esc}[4m";uloff="${esc}[24m";
+invon="${esc}[7m";invoff="${esc}[27m";reset="${esc}[0m";
+COLOR=${redf}${boldon}
+##SERVICES###!/bin/bash
+##SERVICES###chkconfig:345 61 61 
+##SERVICES###description:lbx web service服务
+##SERVICES##WS_PATH=/usr/local
+##SERVICES##LOG_PATH=/var/log
+##SERVICES##WS_NAME=lbxws
+##SERVICES##ETVAL=0
+##SERVICES##esc="\033";blackf="${esc}[30m";redf="${esc}[31m";greenf="${esc}[32m";yellowf="${esc}[33m";bluef="${esc}[34m";purplef="${esc}[35m";
+##SERVICES##cyanf="${esc}[36m";whitef="${esc}[37m";blackb="${esc}[40m";redb="${esc}[41m";greenb="${esc}[42m";yellowb="${esc}[43m";blueb="${esc}[44m";purpleb="${esc}[45m";
+##SERVICES##cyanb="${esc}[46m";whiteb="${esc}[47m";boldon="${esc}[1m";boldoff="${esc}[22m";italicson="${esc}[3m";italicsoff="${esc}[23m";ulon="${esc}[4m";uloff="${esc}[24m";
+##SERVICES##invon="${esc}[7m";invoff="${esc}[27m";reset="${esc}[0m";
+##SERVICES##COLOR=${redf}${boldon}
+##SERVICES##start() {
+##SERVICES##    echo -n -e $"Starting background $WS_NAME"
+##SERVICES##    rm -rf $LOG_PATH/$WS_NAME/$WS_NAME*log* && rm -rf $LOG_PATH/$WS_NAME/lbxmidws*log*
+##SERVICES##    $WS_PATH/$WS_NAME/bin/startup.sh >> $LOG_PATH/$WS_NAME/$WS_NAME.log
+##SERVICES##    echo -e $"..........${COLOR}DONE!${reset}"
+##SERVICES##    RETVAL=$?
+##SERVICES##}
+##SERVICES##stop() {
+##SERVICES##    echo -n -e $"Stopping background $WS_NAME"
+##SERVICES###    $WS_PATH/$WS_NAME/bin/shutdown.sh
+##SERVICES##    PIDCOUNT=$(ps -ef | grep java | grep -v grep | grep $WS_NAME | awk '{print $2}' | wc -l)
+##SERVICES##    if test $PIDCOUNT \> 0; then
+##SERVICES##        ps -ef | grep java | grep -v grep | grep $WS_NAME | awk '{print $2}' | xargs kill -9
+##SERVICES##    fi 
+##SERVICES##    echo -e $"..........${COLOR}DONE!${reset}"
+##SERVICES##    RETVAL=$?
+##SERVICES##}
+##SERVICES##case "$1" in
+##SERVICES##    start)
+##SERVICES##        start
+##SERVICES##        ;;
+##SERVICES##    stop)
+##SERVICES##        stop
+##SERVICES##        ;;
+##SERVICES##    restart)
+##SERVICES##        stop
+##SERVICES##        start
+##SERVICES##        ;;
+##SERVICES##    *)
+##SERVICES###        echo -e $"${COLOR}Usage: $0 {start|stop|restart}${reset}"
+##SERVICES##        echo -e $"${COLOR}Usage: service $WS_NAME {start|stop|restart}${reset}"
+##SERVICES##        ;;
+##SERVICES##esac
+##SERVICES##exit $RETVAL
+case "$1" in
+	install)
+		[ ! -f /etc/init.d/$WS_NAME ] && \
+		grep -a --binary-files=text '##SERVICES##' $0 | grep -v sed | sed  s/##SERVICES##// > /etc/init.d/$WS_NAME && \
+		chmod 755 /etc/init.d/$WS_NAME && \
+		chkconfig --add $WS_NAME && \
+		chkconfig --level 2345 $WS_NAME on && \
+		echo -e $"--------${COLOR}$WS_NAME 服务安装成功${reset}" || \
+		echo -e $"--------${COLOR}$WS_NAME 服务未安装成功${reset}"
+		[ ! -d $WS_PATH/$WS_NAME ] && \
+		mkdir $WS_PATH/$WS_NAME && \
+		mkdir $LOG_PATH/$WS_NAME && \
+		sed '1,/^#__THE_END_OF_SHELL__$/d' $0 | tar xzf - -C $WS_PATH/$WS_NAME && \
+		echo -e $"--------${COLOR}web service程序安装成功在$WS_PATH/$WS_NAME目录${reset}" || \
+		echo -e $"--------${COLOR}web service程序未安装成功${reset}"
+		[ ! -f $WS_PATH/$WS_NAME/bin/catalina.sh ] && rmdir $WS_PATH/$WS_NAME && rmdir $LOG_PATH/$WS_NAME
+		chkconfig --level 2345 iptables off && \
+		/etc/init.d/iptables stop && \
+		chkconfig --level 2345 ip6tables off && \
+		/etc/init.d/ip6tables stop && \
+		sed -i '/SELINUX/s/\(enforcing\|permissive\)/disabled/' /etc/sysconfig/selinux && \
+		echo -e $"--------${COLOR}防火墙和SELinux已经关闭${reset}"
+		;;
+	uninstall)
+		[ -f /etc/init.d/$WS_NAME ] && \
+		chkconfig --del $WS_NAME && rm /etc/init.d/$WS_NAME && \
+		echo -e $"--------${COLOR}$WS_NAME 服务卸载成功${reset}" || \
+		echo -e $"--------${COLOR}$WS_NAME 服务未卸载成功${reset}"
+		[ -d $WS_PATH/$WS_NAME ] && \
+		rm -rf $WS_PATH/$WS_NAME && \
+		rm -rf $LOG_PATH/$WS_NAME && \
+		echo -e $"--------${COLOR}web service程序卸载成功${reset}" || \
+		echo -e $"--------${COLOR}web service程序未卸载成功${reset}"
+		;;
+	*)
+		echo -e $"--------${COLOR}Usage: $0 {install|uninstall}${reset}"
+		exit 1
+esac
+exit
+#__THE_END_OF_SHELL__
 =============================================================================
