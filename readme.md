@@ -9,3 +9,6 @@ sublime是一个比较流行的代码编辑器，主要是一些高效编程的�
 ##[2Go技巧](https://github.com/yaouser/Go-basic-code/tree/master/2Go技巧)
 此目录介绍一些Go语言的小技巧，这些技巧会让你更好的理解Go语言。
 ##其它目录就是依次由浅入深的介绍Go语言特性。
+##[SHELL应用](https://github.com/yaouser/Go-basic-code/tree/master/0document/SHELL-BASE)
+在linux的环境下，也许需要深入的了解一下系统的解释环境(shell)，这样我们才知道
+工作在什么样的环境。
