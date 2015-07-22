@@ -11,4 +11,4 @@ sublime是一个比较流行的代码编辑器，主要是一些高效编程的�
 ##其它目录就是依次由浅入深的介绍Go语言特性。
 ##[SHELL应用](https://github.com/yaouser/Go-basic-code/tree/master/0document/SHELL-BASE)
 在linux的环境下，也许需要深入的了解一下系统的解释环境(shell)，这样我们才知道
-工作在什么样的环境。
+工作在什么样的环境。如果你想知道更加底层是怎么工作的，请找[kernel](https://www.kernel.org/)。它会告诉你的。
