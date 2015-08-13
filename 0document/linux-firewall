@@ -1,0 +1,370 @@
+=============================================================================
+linux下通常的防火墙软件为iptables，新的的发行版中防火墙为firewall。
+=============================================================================
+==============
+==============
+防火墙iptables
+==============
+==============
+INPUT外网访问本机
+OUTPUT本机访问外网
+================
+规则由上之下匹配
+================
+1 增加开放端口
+iptables -A INPUT -p tcp --dport 8080 -j ACCEPT  
+-p 协议 --dport 目标端口 -j ACCEPT允许、REJECT拒绝、DROP丢弃
+
+iptables -I INPUT 5 -p tcp --dport 9443 -j ACCEPT 
+插入规则，将规则插入到INPUT链的第5条，由于规则是按顺序执行，所以开放端口应该
+在禁止端口前面
+
+2 删除规则
+iptables -D INPUT num
+num规则号码
+
+3 查看规则
+/etc/init.d/iptables status 或 iptables -L
+
+4 保存修改
+/etc/init.d/iptables save
+==========================
+防火墙策略一般分为两种，一种叫“通”策略，一种叫“堵”策略，通策略，默认门是关着
+的，必须要定义谁能进。堵策略则是，大门是洞开的，但是你必须有身份认证，否则不
+能进。所以要定义，让进来的进来，让出去的出去，所以通，是要全通，而堵，则是要
+选择。当定义的策略的时候，要分别定义多条功能，其中：定义数据包中允许或者不允
+许的策略，filter过滤的功能，而定义地址转换的功能的则是nat选项。为了让这些功能
+交替工作，我们制定出了“表”这个定义，来定义、区分各种不同的工作功能和处理方式。
+
+现在用的比较多个功能有3个：
+1.filter 定义允许或者不允许的
+2.nat 定义地址转换的 
+3.mangle功能:修改报文原数据
+
+修改报文原数据就是来修改TTL的。能够实现将数据包的元数据拆开，在里面做标记/修改
+内容的。而防火墙标记，其实就是靠mangle来实现的。
+=======
+小扩展:
+=======
+对于filter来讲一般只能做在3个链上：INPUT ，FORWARD ，OUTPUT
+对于nat来讲一般也只能做在3个链上：PREROUTING ，OUTPUT ，POSTROUTING
+而mangle则是5个链都可以做：PREROUTING，INPUT，FORWARD，OUTPUT，POSTROUTING
+
+iptables/netfilter（这款软件）是工作在用户空间的，它可以让规则进行生效的，本身
+不是一种服务，而且规则是立即生效的。而我们iptables现在被做成了一个服务，可以进
+行启动，停止的。启动，则将规则直接生效，停止，则将规则撤销。 
+
+iptables还支持自己定义链。但是自己定义的链，必须是跟某种特定的链关联起来的。在
+一个关卡设定，指定当有数据的时候专门去找某个特定的链来处理，当那个链处理完之后
+，再返回。接着在特定的链中继续检查。
+
+注意：规则的次序非常关键，谁的规则越严格，应该放的越靠前，而检查规则的时候，是
+按照从上往下的方式进行检查的。
+===========
+规则的写法:
+===========
+iptables定义规则的方式比较复杂:
+
+格式：iptables [-t table] COMMAND chain CRETIRIA -j ACTION
+
+-t table ：3个filter nat mangle
+
+COMMAND：定义如何对规则进行管理
+
+chain：指定你接下来的规则到底是在哪个链上操作的，当定义策略的时候，是可以省略的
+
+CRETIRIA:指定匹配标准
+
+-j ACTION :指定如何进行处理
+====================================
+比如：不允许172.16.0.0/24的进行访问。
+
+iptables -t filter -A INPUT -s 172.16.0.0/16 -p udp --dport 53 -j DROP
+
+当然你如果想拒绝的更彻底：
+
+iptables -t filter -R INPUT 1 -s 172.16.0.0/16 -p udp --dport 53 -j REJECT
+
+iptables -L -n -v #查看定义规则的详细信息
+============
+详解COMMAND:
+============
+1.链管理命令（这都是立即生效的）
+
+-P :设置默认策略的（设定默认门是关着的还是开着的）
+
+默认策略一般只有两种
+
+iptables -P INPUT (DROP|ACCEPT)  默认是关的/默认是开的
+
+比如：
+
+iptables -P INPUT DROP 这就把默认规则给拒绝了。并且没有定义哪个动作，所以关于外界连接的所有规则包括Xshell连接之类的，远程连接都被拒绝了。
+
+        -F: FLASH，清空规则链的(注意每个链的管理权限)
+
+    iptables -t nat -F PREROUTING
+
+    iptables -t nat -F 清空nat表的所有链
+
+        -N:NEW 支持用户新建一个链
+
+            iptables -N inbound_tcp_web 表示附在tcp表上用于检查web的。
+
+        -X: 用于删除用户自定义的空链
+
+            使用方法跟-N相同，但是在删除之前必须要将里面的链给清空昂了
+
+        -E：用来Rename chain主要是用来给用户自定义的链重命名
+
+            -E oldname newname
+
+         -Z：清空链，及链中默认规则的计数器的（有两个计数器，被匹配到多少个数据包，多少个字节）
+
+            iptables -Z :清空
+
+2.规则管理命令
+
+         -A：追加，在当前链的最后新增一个规则
+
+         -I num : 插入，把当前规则插入为第几条。
+
+            -I 3 :插入为第三条
+
+         -R num：Replays替换/修改第几条规则
+
+            格式：iptables -R 3 …………
+
+         -D num：删除，明确指定删除第几条规则
+
+3.查看管理命令 “-L”
+
+ 附加子命令
+
+ -n：以数字的方式显示ip，它会将ip直接显示出来，如果不加-n，则会将ip反向解析成主机名。
+
+ -v：显示详细信息
+
+ -vv
+
+ -vvv :越多越详细
+
+ -x：在计数器上显示精确值，不做单位换算
+
+ --line-numbers : 显示规则的行号
+
+ -t nat：显示所有的关卡的信息
+============
+详解匹配标准
+============
+1.通用匹配：源地址目标地址的匹配
+
+ -s：指定作为源地址匹配，这里不能指定主机名称，必须是IP
+
+IP | IP/MASK | 0.0.0.0/0.0.0.0
+
+而且地址可以取反，加一个“!”表示除了哪个IP之外
+
+ -d：表示匹配目标地址
+
+ -p：用于匹配协议的（这里的协议通常有3种，TCP/UDP/ICMP）
+
+ -i eth0：从这块网卡流入的数据
+
+流入一般用在INPUT和PREROUTING上
+
+ -o eth0：从这块网卡流出的数据
+
+流出一般在OUTPUT和POSTROUTING上
+
+2.扩展匹配
+
+2.1隐含扩展：对协议的扩展
+
+    -p tcp :TCP协议的扩展。一般有三种扩展
+
+--dport XX-XX：指定目标端口,不能指定多个非连续端口,只能指定单个端口，比如
+
+--dport 21  或者 --dport 21-23 (此时表示21,22,23)
+
+--sport：指定源端口
+
+--tcp-fiags：TCP的标志位（SYN,ACK，FIN,PSH，RST,URG）
+
+    对于它，一般要跟两个参数：
+
+1.检查的标志位
+
+2.必须为1的标志位
+
+--tcpflags syn,ack,fin,rst syn   =    --syn
+
+表示检查这4个位，这4个位中syn必须为1，其他的必须为0。所以这个意思就是用于检测
+三次握手的第一次包的。对于这种专门匹配第一包的SYN为1的包，还有一种简写方式，叫
+做--syn
+
+    -p udp：UDP协议的扩展
+
+        --dport
+
+        --sport
+
+    -p icmp：icmp数据报文的扩展
+
+        --icmp-type：
+
+echo-request(请求回显)，一般用8 来表示
+
+所以 --icmp-type 8 匹配请求回显数据包
+
+echo-reply （响应的数据包）一般用0来表示
+
+2.2显式扩展（-m）
+
+     扩展各种模块
+
+      -m multiport：表示启用多端口扩展
+
+      之后我们就可以启用比如 --dports 21,23,80
+=============
+详解-j ACTION
+=============
+
+常用的ACTION：
+
+DROP：悄悄丢弃
+
+一般我们多用DROP来隐藏我们的身份，以及隐藏我们的链表
+
+REJECT：明示拒绝
+
+ACCEPT：接受
+
+custom_chain：转向一个自定义的链
+
+ DNAT
+
+ SNAT
+
+ MASQUERADE：源地址伪装
+
+ REDIRECT：重定向：主要用于实现端口重定向
+
+ MARK：打防火墙标记的
+
+ RETURN：返回
+
+在自定义链执行完毕后使用返回，来返回原规则链。
+=============================================================================
+==============
+==============
+防火墙firewall
+==============
+==============
+在CentOS7中引入了一个新的服务Firewalld
+安装它
+# yum install firewalld
+如果需要图形界面的话,则再安装
+# yum install firewall‐config
+========
+一、介绍
+========
+防火墙守护firewalld服务引入了一个信任级别的概念来管理与之相关联的连接与接口。
+它支持ipv4与ipv6,并支持网桥,采用 firewall­cmd (command)或firewall­config (gui)
+来动态的管理kernel netfilter的临时或永久的接口规则,并实时生效而无需重启服务。
+
+Firewall能将不同的网络连接归类到不同的信任级别,Zone提供了以下几个级别
+drop: 丢弃所有进入的包,而不给出任何响应
+block: 拒绝所有外部发起的连接,允许内部发起的连接
+public: 允许指定的进入连接
+external: 同上,对伪装的进入连接,一般用于路由转发
+dmz: 允许受限制的进入连接
+work: 允许受信任的计算机被限制的进入连接,类似 workgroup
+home: 同上,类似 homegroup
+internal: 同上,范围针对所有互联网用户
+trusted: 信任所有连接
+============
+二、使用方法
+============
+# systemctl start firewalld         # 启动,
+# systemctl enable firewalld        # 开机启动
+# systemctl stop firewalld          # 关闭
+# systemctl disable firewalld       # 取消开机启动
+具体的规则管理,可以使用firewall‐cmd,具体的使用方法可以firewall‐cmd ‐‐help
+
+1. 查看规则
+
+查看运行状态
+$ firewall‐cmd ‐‐state
+查看已被激活的 Zone 信息
+$ firewall‐cmd ‐‐get‐active‐zones
+public  interfaces: eth0 eth1
+查看指定接口的 Zone 信息
+$ firewall‐cmd ‐‐get‐zone‐of‐interface=eth0
+public
+查看指定级别的接口
+$ firewall‐cmd ‐‐zone=public ‐‐list‐interfaces
+eth0
+查看指定级别的所有信息,譬如 public
+$ firewall‐cmd ‐‐zone=public ‐‐list‐all
+public (default, active)
+  interfaces: eth0
+  sources:
+  services: dhcpv6‐client http ssh
+  ports:
+  masquerade: no
+  forward‐ports:
+  icmp‐blocks:
+  rich rules:
+查看所有级别被允许的信息
+$ firewall‐cmd ‐‐get‐service
+查看重启后所有 Zones 级别中被允许的服务,即永久放行的服务
+$ firewall‐cmd ‐‐get‐service ‐‐permanent
+
+2. 管理规则
+
+# firewall‐cmd ‐‐panic‐on           # 丢弃
+# firewall‐cmd ‐‐panic‐off          # 取消丢弃
+$ firewall‐cmd ‐‐query‐panic        # 查看丢弃状态
+# firewall‐cmd ‐‐reload             # 更新规则,不重启服务
+# firewall‐cmd ‐‐complete‐reload    # 更新规则,重启服务
+添加某接口至某信任等级,譬如添加 eth0 至 public,再永久生效
+# firewall‐cmd ‐‐zone=public ‐‐add‐interface=eth0 ‐‐permanent
+设置 public 为默认的信任级别
+# firewall‐cmd ‐‐set‐default‐zone=public
+
+a.管理端口
+
+列出 dmz 级别的被允许的进入端口# firewall‐cmd ‐‐zome=dmz ‐‐list‐ports
+允许 tcp 端口 8080 至 dmz 级别
+# firewall‐cmd ‐‐zone=dmz ‐‐add‐port=8080/tcp
+允许某范围的 udp 端口至 public 级别,并永久生效
+# firewall‐cmd ‐‐zome=public ‐‐add‐port=5060‐5059/udp ‐‐permanent
+
+b.管理服务
+
+添加 smtp 服务至 work zone
+# firewall‐cmd ‐‐zone=work ‐‐add‐service=smtp
+移除 work zone 中的 smtp 服务
+# firewall‐cmd ‐‐zone=work ‐‐remove‐service=smtp
+
+c.配置ip地址伪装
+
+查看
+# firewall‐cmd ‐‐zone=external ‐‐query‐masquerade
+打开伪装
+# firewall‐cmd ‐‐zone=external ‐‐add‐masquerade
+关闭伪装
+# firewall‐cmd ‐‐zone=external ‐‐remove‐masquerade
+
+d.端口转发
+
+要打开端口转发,则需要先
+# firewall‐cmd ‐‐zone=external ‐‐add‐masquerade
+然后转发 tcp 22 端口至 3753
+# firewall‐cmd ‐‐zone=external ‐‐add‐forward‐port=port=22:proto=tcp:toport=3753
+转发 22 端口数据至另一个 ip 的相同端口上
+# firewall‐cmd ‐‐zone=external ‐‐add‐forward‐port=port=22:proto=tcp:toaddr=192.168.1.100
+转发 22 端口数据至另一 ip 的 2055 端口上
+# firewall‐cmd ‐‐zone=external ‐‐add‐forward‐port=port=22:proto=tcp:toport=2055:toaddr=192.168.1.100
+=============================================================================
