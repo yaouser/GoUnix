@@ -1,0 +1,64 @@
+==============================================================================
+Go语言使用一个独立的明确的返回值来传递错误信息的。这与使用异常的Java和Ruby以及
+在C语言中经常见到的超重的单返回值／错误值相比，Go语言的处理方式能清楚的知道哪
+个函数返回了错误，并能像调用那些没有出错的函数一样调用。
+==============================================================================
+按照惯例，错误通常是最后一个返回值并且是error类型，一个内建的接口。
+errors.New构造一个使用给定的错误信息的基本error值。
+返回错误值为nil代表没有错误。
+注意在if行中的错误检查代码，在Go中是一个普遍的用法。
+如果想在程序中使用一个自定义错误类型中的数据，需要通过类型断言来得到这个错误类
+型的实例。
+==============================================================================
+package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+func f1(arg int)(int,error) {
+	if arg == 42 {
+		return -1,errors.New("can't work with 42")
+	}
+	return arg + 3,nil
+}
+
+type argError struct {
+	arg int
+	prob string
+}
+
+func (e *argError) Error() string {
+	return fmt.Sprintf("%d-%s",e.arg,e.prob)
+}
+
+func f2(arg int)(int,error) {
+	if arg == 42 {
+		return -1,&argErro{arg,"can't work with it"}
+	}
+	return arg + 3,nil
+}
+
+func main() {
+	for _,i := range []int{7,42} {
+		if r,e := f1(i); e != nil { //通常在if行内进行错误检查代码
+			fmt.Println("f1 failed:",e)
+		} else {
+			fmt.Println("f1 worked:",r)
+		}
+	for _,i := range []int{7,42} {
+		if r,e := f2(i);e != nil { //通常在if行内进行错误检查代码
+			fmt.Println("f2 failed:",e)
+		} else {
+			fmt.Println("f2 worked:",r)
+		}
+	}
+	_,e := f2(42)
+	if ae,ok := e.(*argError); ok { //通过类型断言来得到自定义错误类型
+		fmt.Println(ae.arg)
+		fmt.Println(ae.prob)
+	}
+}
+==============================================================================
+==============================================================================
