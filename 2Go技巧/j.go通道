@@ -1,0 +1,265 @@
+=============================================================================
+通道缓冲 通道同步 通道方向 通道选择器 超时处理 非阻塞通道 通道关闭 通道遍历
+=============================================================================
+通道是连接多个Go协程的管道。从一个Go协程将值发送到通道，然后在别的Go协程中接
+收。
+使用make(chan val-type)创建一个新的通道，通道类型就是他们需要传递值的类型。
+使用channel<-语法发送一个新的值到通道中。
+使用<-channel语法从通道中接受一个值。
+========
+通道缓冲
+========
+默认发送和接受操作是阻塞的，直到发送方和接收方都准备完毕。
+默认通道是无缓冲的，这意味着只有在对应的接受(<-chan)通道准备好接收时，才允许
+进行发送(chan<-)。可缓存通道允许在没有对应接收方的情况下，缓存限定数量的值。
+========
+通道同步
+========
+可以使用通道来同步Go协程间的执行状态。这里是一个使用阻塞的接受方式来等待一个
+Go协程的运行结束。
+-------------------
+package main
+
+import (
+	"time"
+	"fmt"
+)
+
+func worker(done chan bool) {
+	fmt.Print("working...")
+	time.Sleep(time.Second)
+	fmt.Println("done")
+
+	done<-true  //在使用go调用函数时使用通道阻塞函数结束
+}
+
+func main() {
+
+	done := make(chan bool,1) //初始化通道的布尔值
+	go worker(done)  //使用go协程调用函数
+
+	<-done //将调用协程函数的通道布尔值丢掉　函数结束
+}
+//如果把<-done这行代码从程序中移除，程序甚至会在worker还没开始运行就结束了
+========
+通道方向
+========
+当使用通道作为函数的参数时，可以指定这个通道是不是只用来发送或者接收值。这个
+特性提升了程序的类型安全性。
+----------------------------
+package main
+
+import "fmt"
+
+//ping函数定义了一个只允许发送数据的通道
+func ping(pings chan<- string,msg string) {
+	pings <- msg
+}
+
+//pong函数允许通道pings来接收数据，另一通道pongs来发送数据
+func pong(pings <-chan string,pongs chan<- string) {
+	msg := <- pings
+	pongs <- msg
+}
+
+func main() {
+	pings := make(chan string,1)
+	pings := make(chan string,1)
+	ping(pings,"passed message")
+	ping(pings,pongs)
+	fmt.Println(<-pongs)
+}
+==========
+通道选择器
+==========
+Go的通道选择器可以同时等待多个通道操作。Go协程和通道以及选择器的结合是Go的一
+个强大特性。
+使用select关键字来同时等待通道中的值，即选择器。
+-----------------------------------------------
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	c1 := make(chan string)
+	c2 := make(chan string)
+
+	go func() {
+		time.Sleep(time.Second * 1)
+		c1 <- "one"
+	}()
+	go func() {
+		time.Sleep(time.Second * 2)
+		c2 <- "two"
+	}()
+	
+	for i:=0;i<2;i++ {
+		select {
+		case msg1 := <-c1:
+			fmt.Println("received",msg1)
+		case msg2 := <-c1:
+			fmt.Println("received",msg2)
+		}
+	}
+}
+========
+超时处理
+========
+超时对于一个连接外部资源，或者其它一些需要花费执行时间的操作的程序而言是很重
+要的。得益于通道和select，在Go中实现超时操作是简洁而优雅的。
+----------------------
+package main
+
+import (
+	"time"
+	"fmt"
+)
+
+func main() {
+
+	c1 := make(chan string,1)
+	go func() {
+		time.Sleep(time.Second * 2)
+		c1 <- "result 1"
+	}()
+	/*这里使用selet实现一个超时操作。res:=<-c1等待结果，<-Time.After等待
+	超时时间１秒后发送的值。由于select默认处理第一个已准备好的接收操作，
+	如果这个操作超过了允许的１秒的话，将会执行超时case。*/
+	select {
+	case res := <-c1:
+		fmt.Println(res)
+	case <-time.After(time.Second * 1):  //执行这个
+		fmt.Println("timeout 1")
+	}
+
+	c2 := make(chan string,1)
+	go func() {
+		time.Sleep(time.Second * 2)
+		c2 <- "result 2"
+	}()
+	
+	select {
+	case res := <-c2:  //执行这个
+		fmt.Println(res)
+	case <-time.After(time.Second * 3):
+		fmt.Println("timeout 2")
+	}
+}
+==============
+非阻塞通道操作
+==============
+常规的通过通道发送和接受数据是阻塞的。然而，可以使用带一个default字句的select
+来实现非阻塞的发送，接受，甚至是非阻塞的多路select。
+可以在default前使用多个case字句来实现一个多路的非阻塞的选择器。
+-----------------------
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	messages := make(chan string)
+	signals := make(chan bool)
+
+	select {
+	case msg := <- messages:  
+		fmt.Println("received message",msg)
+	default:
+		fmt.Println("no message received")
+	}
+
+	msg := "hi"
+	select {
+	case messages <- msg:
+		fmt.Println("sent message",msg)
+	default:
+		fmt.Println("no message sent")
+	}
+
+	select {
+	case msg := <- messages:
+		fmt.Println("received message",msg)
+	case sig := <- signals:
+		fmt.Println("received signal",sig)
+	default:
+		fmt.Println("no activity")
+	}
+}
+==========
+通道的关闭
+==========
+关闭一个通道意味着不能再向这个通道发送值了。这个特性可以用来给这个通道的接收
+方传达工作已将完成的信息。
+-------------------------
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	//定义通道，通道是等待接收数据和发送数据的空间
+	jobs := make(chan int,5)  //int通道，缓冲区为５
+	done := make(chan bool)  //bool通道
+	//go func(){}()协程匿名函数 for{}无限死循环
+	//工作Go协程
+	go func() {
+		for {
+			//如果jobs已经关闭了，并且通道中所有的值都已经接收完
+			//毕，那么more的值将是false。当完成所有的任务时，将
+			//使用这个特性通过done通道去进行通知。
+			j,more := <- jobs  
+			if more {
+				fmt.Println("received job",j)
+			} else {
+				fmt.Println("received all jobs")
+				done <- true
+				return
+			}
+		}
+	}()
+	//使用jobs发送３个任务到工作函数中，然后关闭jobs。
+	for j:=1;j<=3;j++ {
+		jobs <- j
+		fmt.Println("sent job",j)
+	}
+	close(jobs)  //for循环不断创建jobs数据后使用close()关闭jobs
+	fmt.Println("sent all jobs")
+	
+	<-done  //通过通道同步方法等待任务结束
+}
+========
+通道遍历
+========
+for和range为基本的数据结构提供了迭代的功能。也可以使用这个语法来遍历从通道中
+取得值。
+一个非空的通道也是可以关闭的，但是通道中剩下的值仍然可以被接收到。
+通道中的close函数是为了range迭代执行接收通道数据做准备的，使这个通道不会阻塞
+执行，程序继续向下执行。
+------------------------
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	queue := make(chan string,2)
+	//向通道queue发送数据
+	queue <- "one"
+	queue <- "two"
+	close(queue)
+	
+	//这个range迭代从queue中得到的每个值。由于在前面close了这个通道，这
+	//个迭代会在接收完２个值之后结束。如果没有close它，将在这个循环中继
+	//续阻塞执行，等待接收第三个值。
+	for elem := range queue {
+		fmt.Println(elem)
+	}
+}
+=============================================================================
+=============================================================================
