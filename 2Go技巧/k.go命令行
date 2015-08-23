@@ -1,0 +1,261 @@
+=============================================================================
+命令行参数 命令行标志 环境变量 生成进程 执行进程 信号 退出
+=============================================================================
+==========
+命令行参数
+==========
+命令行参数是指定程序运行参数的一个常见方式。
+例如，go run hello.go，程序go使用了run和hello.go两个参数。
+os.Args提供原始命令行参数访问功能。和切片功能相结合可以将命令行的参数分离开。
+也可以使用标准的索引位置方式取得单个参数的值。
+------------------
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	argsWithProg := os.Args           //获取程序名称及程序的所有参数
+	argsWithoutProg := os.Args[1:]    //获取程序的所有参数
+
+	arg := os.Args[3]           //使用标准的索引位置取得单个参数的值
+
+	fmt.Println(argsWithProg)
+	fmt.Println(argsWithoutProg)
+	fmt.Println(arg)
+}
+==========
+命令行标志
+==========
+命令行标志是命令行程序指定选项的常用方式。
+例如，在wc -l中，这个-l就是一个命令行标志。
+Go提供了一个flag包，支持基本的命令行标志解析。
+基本的标记声明仅支持字符串，整数和布尔值选项。
+flag.String flag.Int flag.Bool这三个返回的都是指针，而不是一个字符串值，所以
+在打印这三个值时，需要在前面加*符号，这样返回的就不是地址了。
+它们三个均有三个参数，第一个是命令行标志，第二个是值，第三个是命令行标志说明。
+用程序中已有的参数来声明一个标志也是可以的。但是请注意要使用要使用的函数不同，
+而是flag.StringVar flag.IntVar flag.BoolVar这三个函数，并且在这三个标志声明函
+数中需要使用该参数的指针。
+所有标志都声明完成以后，调用flag.Parse()来执行命令行解析。
+如果在命令行中省略一个标志，那么这个标志的值自动的设定为它的默认值。
+位置参数可以出现在任何标志后面，也就是命令行参数可以出现在任何标志后面。
+os.Args()可以出现在任何flag后面。
+注意，flag包需要所有的标志出现位置参数之前（否则，标志将会被解析为位置参数）
+使用-h或者--help标志来得到自动生成的这个命令行程序的帮助文本。
+----------------------------
+package main
+
+import (
+	"flag"
+	"fmt"
+)
+
+func main() {
+	wordPtr := flag.String("word","foo","a string")
+	numbPtr := flag.Int("numb",42,"an int")
+	boolPtr := flag.Bool("fork",false,"a bool")
+
+	//用程序中已有的参数来声明一个标志也可以，注意使用参数的指针
+	var svar string
+	flag.StringVar(&sva,"svar","bar","a string var")
+
+	//声明完所有标志后，用flag.Parse()来执行命令行解析
+	flag.Parse()
+
+	fmt.Println("word:",*wordPtr)
+	fmt.Println("numb:",*numbPtr)
+	fmt.Println("fork:",*boolPtr)
+	fmt.Println("svar:",svar)
+	fmt.Println("tail:",falg.Args())
+}
+========
+环境变量
+========
+环境变量是一个在为Unix程序传递配置信息的普遍方式。
+如果设置，获取并列举环境变量？
+使用os.Setenv来设置一个键值对。
+使用os.Getenv来获取一个键对应的值。
+使用os.Environ来列出所有环境变量键值对。
+os.Environ()这个函数返回一个KEY=value形式的字符串切片，可以使用strings.Split
+来得到键和值。这些键值是由自己的计算机所决定的。
+------------------
+package main
+
+import (
+	"os"
+	"stirngs"
+	"fmt"
+)
+
+func main() {
+	os.Setenv("FOO","1")
+	fmt.Println("FOO:",os.Getenv("FOO"))
+	fmt.Println("BAR:",os.Getenv("BAR"))
+
+	fmt.Println()
+	for _,e := range os.Environ() {
+		pair := strings.Split(e,"=")
+		fmt.Println(pair[0])
+	}
+}
+========
+生成进程
+========
+有时，Go程序需要生成其他的，非Go进程。
+exec.Command()函数帮助创建一个表示这个外部进程的对象。
+exec.Command.Output()等待命令运行完成，并收集命令的输出。
+exec.Command.StdinPipe()从外部进程的stdin输入数据。
+exec.Command.StdoutPipe()从外部进程的stdout收集结果。
+exec.Command.StderrPipe()从外部进程的stderr收集错误。
+注意，当需要提供一个明确的命令和参数数组来生成命令，和能够只需要提供一行命令
+行字符串相比，想使用通过一个字符串生成一个完整的命令，那么可以使用bash命令的
+-c选项。
+---------------------
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"os/exec"
+)
+
+func main() {
+	
+	dateCmd := exec.Command("date")
+	dateOut,err := dateCmd.Output()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(">date")
+	fmt.Println(string(dateOut))
+	
+	//这里明确的获取输入／输出管道，运行这个进程，写入一些输入信息，读取
+	//输出的结果，最后等待程序运行结束。
+	grepCmd := exec.Command("grep","hello")
+	grepIn,_ := grepCmd.StdinPipe()
+	grepOut,_ := grepCmd.StdoutPipe()
+	grepCmd.Start()
+	grepIn.Write([]byte("hello grep\ngoodbye grep"))
+	grepIn.Close()
+	grepBytes,_ := ioutil.ReadAll(grepOut)
+	grepCmd.Wait()
+
+	fmt.Println(">grep hello")
+	fmt.Println(string(grepBytes))
+
+	lsCmd := exec.Command("bash","-c","ls -a -l -h")
+	lsOut,err := lsCmd.Output()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(">ls -a -l -h")
+	fmt.Println(string(lsOut))
+}
+========
+执行进程
+========
+前面是生成外部进程的例子，当需要访问外部进程时需要这样做，但有时，只想用其他
+的（也许是非Go程序）来完全替代当前的Go进程。这时，可以使用经典的exec方法的Go
+实现。
+使用exec.LookPath来得到可执行文件的绝对路径。
+执行程序需要的参数以切片形式来提供。但是，要注意执行程序的基本参数，第一个参
+数需要的是程序名。
+执行程序需要使用环境变量，由于是宿主机的进程，所以环境变量不可缺少。
+---------------------
+package main
+
+import (
+	"syscall"
+	"os"
+	"os/exec"
+)
+
+func main() {
+	binary,lookErr := exec.LookPath("ls")
+	if lookErr != nil {
+		panic(lookErr)
+	}
+	
+	//执行程序的切片参数
+	args := []string{"ls","-a","-l","-h"}
+	
+	//环境变量
+	env := os.Environ()
+	
+	//只是一个系统调用完全是宿主机的进程，不是Go程序
+	//不需要Go获取输入和输出
+	execErr := syscall.Exec(binary,args,env)
+	if execErr := nil {
+		panic(execErr)
+	}
+}
+====
+信号
+====
+有时候，希望Go能智能的处理Unix信号。例如，希望当服务器接收到一个SIGTERM信号时
+能够自动关机，或者一个命令行工具在接收到一个SIGINT信号时停止处理输入信息。这
+里就是在Go中如何通过通道来处理信号。
+ctrl-C可以发送一个SIGINT信号。
+需要先声明一个特定的信号值的通道，make(chan os.Signal,1)。
+signal.Notify注册一个给定的通道用于接收特定信号。
+---------------
+package main
+
+import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+)
+
+func main() {
+	
+	//声明一个特定传输信号的通道
+	sigs := make(chan os.Signal,1)
+	done := make(chan bool,1)
+
+	//注册这个声明的特定通道用于接收特定信号
+	signal.Notify(sigs,syscall.SIGINT,syscall.SIGTERM)
+	
+	//这个Go协程执行一个阻塞的信号接收操作操作
+	go func() {
+		sig := <- sigs
+		fmt.Println()
+		fmt.Println(sig)
+		done <- true  	//阻塞，等待，一旦通道done值没有了才退出
+	}()
+	
+	//程序在这里进行等待，直到它得到了期望的信号（就是上面的Go协程发送的
+	//done值）然后退出。
+	fmt.Println("awaiting signal")
+	<-done
+	fmt.Println("exiting")
+}
+====
+退出
+====
+使用os.Exit来立即给待定状态退出。
+当使用os.Exit时defer将不会执行。
+注意，不像C语言，Go不使用在main中返回一个整数来指明退出状态。如果想以非零状态
+退出，那么就要使用os.Exit。
+使用编译并执行一个二进制文件的方式，可以在终端中查看退出状态。
+---------------------
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	
+	//这一句永远都不会打印出来	
+	defer fmt.Println("!")
+
+	os.Exit(3)
+}
+=============================================================================
+=============================================================================
