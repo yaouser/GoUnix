@@ -1,0 +1,77 @@
+==============================================================================
+可以使用原子操作来管理简单的计数器，即多个协程对同一个值进行计数使用的是原子的
+简单操作。但对于更加复杂的情况，可以使用一个互斥锁来在Go协程间安全的访问数据。
+sync.Mutex{}
+sync.Mutex{}.Lock() 确保独占访问
+sync.Mutex{}.Unlock() 解除独占访问
+-------------------------
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"runtime"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+func main() {
+	
+	var state = make(map[int]int)
+
+	var mutex = &sync.Mutex{}
+
+	var ops int64 = 0
+
+	
+	//运行100个Go协程来重复读取state
+	for r := 0; r < 100; r++ {
+		go func() {
+			total := 0
+			for {
+				key:=rand.Intn(5)
+				mutex.Lock()	//确保对state的独占访问
+				total+=state[key]
+				mutex.Unlock()	//解除对state的独占访问
+				atomic.AddInt64(&ops,1)
+
+				//为了确保这个Go协程不会在调度中饿死，需在每次
+				//操作后明确的使用runtime.Gosched()进行释放。
+				runtime.Gosched()
+			}
+		}{}
+	}
+
+
+	//===============================================
+	//同样，运行10个Go协程来模拟写入操作，使用和读取相同的模式。
+	for w := 0; w < 10; w++ {
+		go func() {
+			for {
+				key := rand.Intn(5)
+				val := rand.Intn(100)
+				mutex.Lock()
+				state[key] = val
+				mutex.Unlock()
+				atomic.AddInt64(&ops,1)
+				runtime.Gosched()
+			}
+		}()
+	}
+
+	//让100个读协程和10个写协程对state和mutex的操作运行1s。
+	time.Sleep(time.Second)
+
+	//获取最终的操作计数
+	opsFinal := atomic.LoadInt64(&ops)
+	fmt.Println("ops:",opsFinal)
+
+	//对state使用一个最终的锁，显示最终的结果。
+	mutex.Lock()
+	fmt.Println("state:",state)
+	mutex.Unlock()
+}
+
+==============================================================================
+==============================================================================
