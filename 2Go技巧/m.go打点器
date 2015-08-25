@@ -1,0 +1,32 @@
+==============================================================================
+定时器是想要在未来某一刻执行一次时使用的。打点器则是想要在固定的时间间隔重复执
+行准备的。定时器(NewTimer) 打点器(NewTicker)
+打点器和定时器的机制有点相似：一个通道用来发送数据。
+time.NewTicker()　打点器
+time.NewTicker().C　打点器通道
+<-time.NewTicker().C　打点器在间隔的时间内阻塞
+range time.NewTicker().C　可以迭代打点器的打点时间
+time.NewTicker().Stop() 停止打点器
+time.Sleep()　时间等待
+------------------------------------
+package main
+
+import (
+	"time"
+	"fmt"
+)
+
+func main() {
+	ticker := time.NewTicker(time.Millisecond * 500)
+	go func() {
+		for t := range ticker.C {
+			fmt.Println("Tick at",t)
+		}
+	}()
+
+	time.Sleep(time.Millisecond * 1500)
+	ticker.Stop()
+	fmt.Println("Ticker stopped")
+}
+==============================================================================
+==============================================================================
