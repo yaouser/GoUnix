@@ -1,0 +1,62 @@
+=============================================================================
+速率限制是一个重要的控制服务资源利用和质量的途径。
+Go通过Go协程，通道和打点器优美的支持了速率限制。
+--------------------------
+package main
+
+import (
+	"time"
+	"fmt"
+)
+
+func main() {
+
+	//======================================================
+	//请求限制
+	requests := make(chan int,5)
+	for i := 1; i <= 5; i++ {
+		requests <- i
+	close(requests)
+
+	//打点器，注意这个返回的本身就是channel
+	limiter := time.Tick(time.Millisecond * 200)
+
+	//通过<-limiter来丢值在打点器的打点时刻解除阻塞
+	for req := range requests {
+		<-limiter
+		fmt.Println("request",req,time.Now())
+	}
+
+
+	//===================================================================
+	//有时候想临时进行速率限制，并且不影响整体的速率控制，可以通过通道缓冲
+	//来实现，这个burstyLimiter通道用来进行3次临时的脉冲型速率限制。
+	burstyLimiter := make(chan time.Time,3)
+
+	//将通道填充临时改变的值
+	for i := 0; i < 3; i++ {
+		burstyLimiter <- time.Now()
+	}
+
+	//每200ms将添加一个新的值到burstyLimiter中，直到达到3个的限制
+	go func() {
+		for t := range time.Tick(time.Millisecond * 200) {
+			burstyLimiter <- t
+		}
+	}()
+
+	//---------------------------------------------------------------------
+	//现在模拟超过5个接入请求，它们中刚开始的3个将受burstyLimiter的脉冲影响
+	burstyRequests := make(chan int,5)
+	for i := 1; i <= 5; i++ {
+		burstyRequests <- i
+	}
+	close(burstyRequests)
+	for req := range burstyRequests {
+		//通过通道丢弃值来解除阻塞
+		<-burstyLimiter
+		fmt.Println("request",req,time.Now())
+	}
+}
+=============================================================================
+=============================================================================
