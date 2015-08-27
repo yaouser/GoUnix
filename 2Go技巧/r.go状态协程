@@ -1,0 +1,92 @@
+==============================================================================
+用互斥锁进行明确的锁定来让共享的值跨多个Go协程同步访问。另一个选择是使用内置的
+Go协程和通道的同步特性来达到同样的效果，就是将需要共享和同步的数据以结构体的行
+式来定义成Go通道，以确保结构体形式的每块数据有单独的Go协程来操作。
+基于Go协程的比基于互斥锁的稍复杂，但这在某些场合有用，例如，在有其他通道包含其
+中或者当管理多个互斥锁的场合。
+------------------------------------------
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"sync/atomic"
+	"time"
+)
+
+//结构体数据类型，用于定义同步通道的数据类型，其中字段包括channel类型
+type readOp struct {
+	key int
+	resp chan int
+}
+
+//结构体数据类型，用于定义同步通道的数据类型，其中字段包括channel类型
+type writeOp struct {
+	key int
+	val int
+	resp chan bool
+}
+
+func main() {
+	
+	//定义计算执行操作的次数
+	var ops int64
+
+	//定义结构体数据类型的同步通道
+	reads := make(chan *readOp)
+	writes := make(chan *writeOp)
+
+	//拥有state的Go协程，这个协程反复响应到达的请求，然后返回一个值到响应
+	//通道resp来表示操作成功。
+	go func() {
+		var state = make(map[int]int)
+		for {
+			select {
+			case read :=<-reads:
+				read.resp <- state[read.key]
+			case write :=<-writes:
+				state[write.key] = write.val
+				write.resp <- true
+			}
+		}
+	}()
+
+	//启动100个Go协程模拟读操作
+	for r := 0; r < 100; r++ {
+		go func() {
+			for {
+				read := &readOp {
+					key:rand.Intn(5),
+					resp:make(chan int)}
+				reads <- read
+				<-read.resp
+				atomic.AddInt64(&ops,1)
+			}
+		}()
+	}
+
+	//启动10个Go协程模拟协操作
+	for w := 0; w < 10; w++ {
+		go func() {
+			for {
+				write := &writeOp {
+					key:rand.Intn(5),
+					val:rand.Intn(100),
+					resp:make(chan bool)}
+				writes <-write
+				<-write.resp
+				atomic.AddInt64(&ops,1)
+			}
+		}()
+	}
+
+	//让这些Go协程运行1s
+	time.Sleep(time.Second)
+
+	opsFinal := atomic.LoadInt64(&ops)
+	fmt.Println("ops:",opsFinal)
+}
+//这个例子中，模拟读写的Go协程将发送一条数据到拥有state的Go协程中，然后接受对
+//应的回复。结构体readOp和writeOp封装这些请求，并且是拥有Go协程响应的一个方式
+==============================================================================
+==============================================================================
