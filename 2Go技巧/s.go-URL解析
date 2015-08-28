@@ -1,0 +1,51 @@
+==============================================================================
+URL提供了一个统一资源定位方式。
+net/url.Parse()	解析URL
+net/url.Scheme scheme
+net/url.User 包含了所有的认证信息
+net/url.User.Username() 认证信息的用户名
+net/url.User.Password() 认证信息的密码
+net/url.Host 包含主机名和端口信息
+net/url.Path 包含路径信息
+net/url.Fragment 包含查询片段信息
+net/url.RawQuery 得到字符串中k=v这种格式的查询参数
+---------------------------------------------------
+package main
+
+import (
+	"fmt"
+	"net/url"
+	"strings"
+)
+
+func main() {
+	s := "postgres://user:pass@host.com:5432/path?k=v#f"
+
+	u,err := url.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(u.Scheme)
+
+	fmt.Println(u.User)
+	fmt.Println(u.User.Username())
+	p,_ := u.User.Password()
+	fmt.Println(p)
+
+	fmt.Println(u.Host)
+	h := strings.Split(u.Host,":")
+	fmt.Println(h[0])
+	fmt.Println(h[1])
+
+	fmt.Println(u.Path)
+	fmt.Println(u.Fragment)
+
+	fmt.Println(u.RawQuery)
+	m,_ := url.ParseQuery(u.RawQuery)
+	fmt.Println(m)
+	fmt.Println(m["k"][0])
+}
+
+==============================================================================
+==============================================================================
