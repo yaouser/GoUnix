@@ -1,0 +1,184 @@
+==============================================================================
+时间  Unix时间戳  时间的格式化和解析
+==============================================================================
+时间
+====
+Go对时间和时间段提供了大量的支持。
+time.Now()
+time.Date()
+time.Date().Year()
+time.Date().Month()
+time.Date().Day()
+time.Date().Hour()
+time.Date().Minute()
+time.Date().Second()
+time.Date().Nanosecond() 纳秒
+time.Date().Location()
+time.Date().Weekday()  周几
+time.Date(A).Before(B)
+time.Date(A).After(B)
+time.Date(A).Equal(B)
+time.Date().Add(T) 将时间后移一个时间间隔T
+time.Date().Add(-T) 将时间前移一个时间间隔
+time.Now().Sub(A) 返回一个now与A的Duration来表示两个时间点的间隔时间
+这个时间间隔也同样有Hours() Minutes() Seconds() Nanoseconds()的方法，这用来计
+算出不同单位下的时间长度值
+-----------------------------------
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+
+	now := time.Now()
+	fmt.Println(now)
+
+	then := time.Date(2009,11,17,20,34,58,651387237,time.UTC)
+	fmt.Println(then)
+
+	fmt.Println(then.Year())
+	fmt.Println(then.Month())
+	fmt.Println(then.Day())
+	fmt.Println(then.Hour())
+	fmt.Println(then.Minute())
+	fmt.Println(then.Second())
+	fmt.Println(then.Nanosecond())
+	fmt.Println(then.Location())
+
+	fmt.Println(then.Weekday())
+
+	fmt.Println(then.Before(now))
+	fmt.Println(then.After(now))
+	fmt.Println(then.Equal(now))
+
+	diff := now.Sub(then)
+	fmt.Println(diff)
+
+	//计算出不同单位下的时间长度值
+	fmt.Println(diff.Hours())
+	fmt.Println(diff.Minutes())
+	fmt.Println(diff.Seconds())
+	fmt.Println(diff.Nanoseconds())
+
+	//可以使用Add将时间后移一个时间间隔，或者使用一个-来将时间前移一个时间
+	//间隔
+	fmt.Println(then.Add(diff))
+	fmt.Println(then.Add(-diff))
+}
+==============================================================================
+Unix时间戳
+==========
+一般程序会有获取Unix时间的秒数，毫秒数，或者微妙数的需要。
+time.Now().Unix() 从1970-01-01 00:00:00到现在的秒数
+time.Now().UnixNano() 从1970-01-01 00:00:00到现在的纳秒数
+毫秒数是不存在的，需要通过纳秒数转换一下。 毫秒=纳秒/1000000
+time.Unix(second,nanos) 这个通过从time.Now()的秒second[time.Now().Unix()]或者
+nanos[time.Now().UnixNano()]来给这个函数参数来得到目前精确到秒或者纳秒程度的
+准确日期
+time.Unix(second,0) 获取精确到秒的目前日期
+time.Unix(0,nanos) 获取精确到纳秒的目前日期
+--------------------------------
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	now := time.Now()
+	secs := now.Unix()
+	nanos := now.UnixNano()
+	//毫秒是从纳秒转化而来
+	millis := nanos/1000000
+
+	fmt.Println(now)
+	fmt.Println(secs)
+	fmt.Println(millis)
+	fmt.Println(nanos)
+
+	//可以将世界起始时间的整数秒或者纳秒转化到相应的时间
+	//也就是将从Unix中获取的时间戳变成我们需要的日期
+	//秒和纳秒是我们要精确的程度
+	fmt.Println(time.Unix(secs,0))
+	fmt.Println(time.Unix(0,nanos))
+}
+==============================================================================
+时间格式化和解析
+================
+Go支持通过基于描述模板的时间格式化和解析。
+Format和Parse使用基于例子（即模式常量）的形式来决定日期格式，一般只要使用time
+包中提供的模式常量就行了，但也可以实现自定义模式。
+模式常量为[3:04PM] [Mon Jan _2 15:04:05 2006] [2006-01-02T15:04:05.999999]
+时间解析使用同Format相同的形式值。
+对于纯数字表示的时间，也可以使用标准的格式化字符串来提取出时间。
+Parse函数在输入的时间格式不正确时会返回一个错误。
+time.Now().Format()
+time.Parse()
+time.Now().Year() 这里面有Year() Month() Day() Hour() Minute() Second()
+------------------------------
+package main
+
+import (
+        "fmt"
+        "time"
+)
+
+func main() {
+        t := time.Now()
+
+        fmt.Println(t)
+        fmt.Println(t.Format("3:04PM"))
+        fmt.Println(t.Format("2006Year"))
+        fmt.Println(t.Format("2006年-1月-2日/15:04:05"))
+        fmt.Println(t.Format("1月"))
+        fmt.Println(t.Format("今天的月份是：Jan"))
+        fmt.Println(t.Format("06"))
+        fmt.Println(t.Format("0.999999"))
+
+        fmt.Println(t.Format("01月"))
+        fmt.Println(t.Format("02日"))
+        fmt.Println(t.Format("03时"))
+        fmt.Println(t.Format("04分"))
+        fmt.Println(t.Format("05秒"))
+        fmt.Println(t.Format("06年"))
+
+        fmt.Println(t.Format("Mon"))
+        fmt.Println(t.Format("Jan"))
+        fmt.Println(t.Format("_2"))
+        fmt.Println(t.Format("03:04"))
+}
+------------------------
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	t := time.Now()
+	fmt.Println(t.Format(time.RFC3339))
+
+	t1,e := time.Parse(time.RFC3339,"2012-11-01T22:08:41+00:00")
+	fmt.Println(t1)
+
+	fmt.Println(t.Format("3:04PM"))
+	fmt.Println(t.Format("Mon Jan _2 15:04:05 2006"))
+	fmt.Println(t.Format("2006-01-02T15:04:05.999999-07:00"))
+	form := "3 04 PM"
+	t2,e := time.Parse(form,"8 41 PM")
+	fmt.Println(t2)
+
+	fmt.Printf("%d-%02d-%02dT%02d:%02d:%02d-00:00\n",
+		t.Year(),t.Month(),t.Day(),t.Hour(),t.Minute(),t.Second())
+
+	ansic := "Mon Jan _2 15:04:05 2006"
+	_,e = time.Parse(ansic,"8:41PM")
+	fmt.Println(e)
+}
+==============================================================================
+==============================================================================
