@@ -8,7 +8,7 @@ sublime是一个比较流行的代码编辑器，主要是一些高效编程的�
 脚本程序，能够让你更好的理解linux命令行环境。
 ##[Go Command](https://github.com/yaouser/GoUnix/blob/master/0document/Go-command/SUMMARY.md)
 Go语言的命令行工具介绍,这个目录是fork于郝林的一个项目,由来请看[这里](https://github.com/hyper-carrot/go_command_tutorial).
-尤其是pprof工具写的不错.
+尤其是pprof工具写的不错.注意请先查看这部分内容的[协议](https://github.com/yaouser/GoUnix/blob/master/0document/Go-command/LICENSE).
 ##[Go技巧](https://github.com/yaouser/Go-basic-code/tree/master/2Go技巧)
 此目录介绍一些Go语言的小技巧，这些技巧会让你更好的理解Go语言。
 ##其它目录就是依次由浅入深的介绍Go语言特性。
