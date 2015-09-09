@@ -1,0 +1,117 @@
+==============================================================================
+Go库中有两个包涉及到pprof工具
+---------------
+runtime/pprof
+net/http/pprof
+---------------
+运行时的分析工具可以收集CPU 内存 Goroutine阻塞事件(block) 跟踪(trace)四种数据
+运行时中的pprof工具是底层的分析工具,而网络包中的pprof只是将前者的进行内部封装,
+并通过http端口的方式暴露出来.
+==============================================================================
+net/http/pprof使用
+==================
+如果分析的程序是Web服务器型的,只需要在入口文件中的引用包部分,在import中增加一
+行 _ "net/http/pprof" 即可.这个时候比较方便的就是通过浏览器来查询Web服务器中代
+码的各种运行情况.如果你的程序没有运行在http服务端口上,需要我们启动一个http服务
+端口.
+----------------
+启动服务端口方法
+----------------
+1在import中添加"net/http"和"log"包
+2在main函数中启动一个并行的监听日志服务端口
+go func() {
+	log.Println(http.ListenAndServe("localhost:6060",nil))
+}()
+----------
+浏览器查询
+----------
+http://localhost:6060/debug/pprof/
+----------
+命令行查询
+----------
+**heap profile**
+go tool pprof http://localhost:6060/debug/pprof/heap
+**look at a 30-second CPU profile**
+go tool pprof http://localhost:6060/debug/pprof/profile
+**look at a the goroutine blocking profile**
+go tool pprof http://localhost:6060/debug/pprof/block
+**collect a 5-second execution trace**
+wget http://localhost:6060/debug/pprof/trace?seconds=5
+==============================================================================
+runtime/pprof使用
+=================
+假如代码使用了Go testing包的基准支持,我们可以使用go test的标准标志-cpuprofile
+和-memprofile.但是在一个单独的程序中我们需要添加包和额外的一些代码来完成代码的
+分析数据.
+-------------------
+CPU数据收集代码添加
+-------------------
+1在import引用包中额外添加"runtime/pprof"和"log" "os" "flag"
+2在独立程序中额外添加代码如下
+
+var cpuprofile = flag.String("cpuprofile","","write cpu profile to file")
+
+func main() {
+	flag.Parse()
+	if *cpuprofile != "" {
+		f,err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+}
+....
+
+--------------------
+内存数据收集代码添加
+--------------------
+1在import引用包中额外添加"runtime/pprof"和"log" "os" "flag"
+2在独立程序中额外添加代码如下
+
+var memprofile = flag.String("memprofile","","write memory profile to this file")
+....
+
+func main() {
+	....
+	....
+	if *memprofile != "" {
+		f,err := os.Create(*memprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.WriteHeapProfile(f)
+		f.Close()
+		return
+	}
+}
+
+--------------------
+捕捉程序运行时间数据
+--------------------
+#xtime.sh
+
+#!/bin/sh
+/usr/bin/time -f '%Uu %Ss %er %MkB %C' "$@"
+
+-------------------------------------------
+#hello.go
+
+package main
+
+import "fmt"
+
+func main() {
+	for i:=0;i<10;i++ {
+		for j:=0;j<100;j++ {
+			fmt.Println(hello world)
+		}
+	}
+}
+
+------------------------------------------------
+$go build hello.go
+$./xtime.sh hello
+-------------------
+==============================================================================
+==============================================================================
