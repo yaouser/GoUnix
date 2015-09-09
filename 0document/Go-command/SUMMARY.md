@@ -12,3 +12,4 @@
   - [go tool pprof](0.12.md)
   - [go tool cgo](0.13.md)
   - [go env](0.14.md)
+-[Go语言并发编程实战中的代码](goc2p)
