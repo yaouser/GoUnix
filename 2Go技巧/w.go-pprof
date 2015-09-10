@@ -264,6 +264,87 @@ go tool pprof fibonacci profile
 ==========================
 一个httpserver程序分析示例
 ==========================
+sync包中的WaitGroup,WaitGroup总共有三个方法Add(delta int) Done() Wait()
+Add:添加或者减少等待goroutine的数量.
+Done:相当于Add(-1).
+Wait:执行阻塞,知道所有的WaitGroup数量变为0.
+--------------------------------------------
+package main
 
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+func main() {
+	var wg sync.WaitGroup
+
+	for i := 0; i < 5; i = i + 1 {
+		wg.Add(1)
+		go func(n int) {
+			// defer wg.Done()
+			defer wg.Add(-1)
+			EchoNumber(n)
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+func EchoNumber(i int) {
+	time.Sleep(3e9)
+	fmt.Println(i)
+}
+---------
+每次循环的数量过3秒钟输出,这个程序如果不用WaitGroup,那么将看不见输出结果.因为
+goroutine还没执行完,主线程已经执行完毕.注释的defer wg.Done()和defer wg.Add(-1)
+作用一样.原来执行脚本,都是使用time.Sleep,用一个估计的时间等到子线程执行完.
+WaitGroup很好,虽然chanel也能实现，但是觉得如果涉及不到子线程与主线程数据同步,
+这个就不错.但是其缺点是无法指定固定的goroutine数目.可通过使用channel解决问题。
+---------------------
+需要测试的程序server.go
+
+package main
+
+import (
+        "flag"
+        "log"
+        "net/http"
+        _ "net/http/pprof"	//需要加入的包
+        "sync"
+        "time"
+)
+
+func work(wg *sync.WaitGroup) {
+        time.Sleep(time.Second)
+        var counter int
+        for i := 0; i < 1000; i++ {
+                time.Sleep(time.Millisecond * 100)
+                counter++
+        }
+        wg.Done()
+}
+
+func main() {
+        flag.Parse()
+	//这里实现了远程获取pprof数据的接口 需要添加的用于捕捉数据
+        go func() {
+                log.Println(http.ListenAndServe("localhost:6060", nil))
+        }()
+
+        var wg sync.WaitGroup
+        wg.Add(10)
+        for i := 0; i < 10; i++ {
+                go work(&wg)
+        }
+
+        wg.Wait()
+	//Wait to see the global run queue deplete.
+        time.Sleep(3 * time.Second)
+}
+------------------
+go build server.go
+./server
 ==============================================================================
 ==============================================================================
