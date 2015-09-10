@@ -242,4 +242,18 @@ git技巧
 同样可以使用git checkout -p来选择需要恢复的部分。添加
 后，可以使用git diff --cached来查看差异。
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
+working tree:就是所工作的目录,每当在代码中进行修改后,
+working tree的状态就改变了.
+----------------------------
+index file:是索引文件,每当使用git add命令来登记后,这时
+文件index file内容就改变了,此时index file和working tree
+同步.
+----------------------------
+commit:最后阶段,只有commit了,代码才真正进入了git仓库中.
+我们使用git commit就是将index file里的内容提交到commit.
+----------------------------
+git diff:查看working tree与index file的差别.
+git diff --cached:查看index file与commit的差别的.
+git diff HEAD:查看working tree与commit的差别.
+HEAD代表的是最近一次commit的信息.
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
