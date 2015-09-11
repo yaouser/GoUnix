@@ -128,7 +128,24 @@ func C.GoStringN(*C.char, C.int) string
 
 // C pointer, length to Go []byte
 func C.GoBytes(unsafe.Pointer, C.int) []byte
-------------------------------------------------
+------------------------------------------------------------------------------
+可以将Go语言中的函数导入到C代码中
+---------------------------------
+在Go语言中是这样的(//export必须要有,声明可被导出)
 
+//export MyFunction
+func MyFunction(arg1, arg2 int, arg3 string) int64 {...}
+
+//export MyFunction2
+func MyFunction2(arg1, arg2 int, arg3 string) (int64, *C.char) {...}
+
+到C代码中是这样的
+
+extern int64 MyFunction(int arg1, int arg2, GoString arg3);
+extern struct MyFunction2_return MyFunction2(int arg1, int arg2, GoString arg3);
+
+------------------------------------------------------------------------------
+go tool cgo工具
+其是将指定的Go源文件翻译输出成几个Go和C源文件
 ==============================================================================
 ==============================================================================
