@@ -29,7 +29,7 @@ cat install.sh hello.tar.bz2 > install.run
 sh install.run
 =============================================================================
 制作一个安装apache mysql安装脚本包
-1.将远吗包先打包
+1.将源码包先打包
 tar zcvf packages.tar.gz httpd.tar.bz2 mysql.tar.gz
 2.编写脚本
 #!/bin/bash

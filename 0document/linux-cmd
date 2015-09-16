@@ -1,0 +1,101 @@
+==============================================================================
+批量转换GBK编码到UTF-8编码文件(iconv)
+=====================================
+find default -type f -exec file -i {} \; > /tmp/afile
+grep "charset=utf-8" /tmp/afile
+1先用命令将所有需要的文件查找出是什么类型的编码并将内容重定向到文件中
+2在重定向文件中查找是utf-8编码的文件找出来排除掉
+-------------------------------------------------
+find default -type d -exec mkdir -p utf/ {} \;
+find default -type f -exec iconv -f GBK -t UTF-8 {} -o utf/ {} \;
+1首先按原目录递归建立起来
+2再将发现的GBK编码文件转换成UTF-8编码的文件并放入建立的目录中
+注意:将原来就是UTF-8编码的文件转换成UTF-8编码的文件会出现乱码
+---------------------------------------------------------------
+iconv
+-----
+输入/输出格式
+-f	--from-code 	原始文本编码(编码名称)
+-t	--to-code	输出编码(编码名称)
+-l	--list		列举所有已知的字符集
+输出控制
+-c 从输出中忽略无效的字符
+-o,--output	输出文件
+-s,--slient	关闭警告
+--verbose	打印进度信息
+==============================================================================
+curl命令
+========
+-o/-O选项保存下载的文件到指定的文件中(可使用重定向字符输出)
+-o filename url	将文件保存为命令行中指定的文件名
+-O url		使用URL中默认的文件名保存到本地
+curl -O URL1 -O URL2	可从同一站点下载多个文件
+-------------------------------------------------
+curl -L url		强制重定向
+curl -C - -O url	使用-C选项可对大文件使用断点续传功能
+-------------------------------------------------------------
+curl --limit-rate 1000B -O url
+通过--limit-rate选项对CURL的最大网络(每秒1000B)使用进行限制
+-----------------------------------------------------------
+curl -z 21-Dec-13 url
+#文件在2013/12/21之后有过更新才会进行下载
+下载文件时,可对文件最后修改日期判断,如果文件在指定日期内修改过,就下载.
+----------------------------------------------------------------------
+在访问需要授权的页面时,可通过-u选项提供用户名和密码进行授权
+curl -u username:password url
+通常的做法是在命令行只输入用户名,之后会提示输入密码,这个可以保证在常看历史记录
+时不会将密码泄漏
+curl -u username url
+---------------------------------
+从FTP服务器下载文件
+-------------------
+#列出public_html下的所有文件夹和文件
+curl -u ftpuser:ftppass -O ftp://ftp_server/public_html/
+#下载file.txt文件
+curl -u ftpuser:ftppass -O ftp://ftp_server/public_html/file.txt
+使用-T选项可将指定的本地文件上传到FTP服务器上
+#将file.txt文件上传到服务器
+curl -u ftpuser:ftppass -T file.txt ftp://ftp.testserver.com
+#同时上传多个文件
+curl -u ftpuser:ftppass -T "{file1,file2}" ftp://ftp.testserver.com
+#从标准输入获取内容保存到服务器指定的文件中
+curl -u ftpuser:ftppass -T - ftp://ftp.testserver.com/file.txt
+----------------------------------------------------------------
+为curl设置代理
+--------------
+curl -x proxyserver.test.com:3128 url
+#指定代理主机和端口
+---------------------------------------
+传递请求数据
+------------
+默认curl使用GET方式请求数据,可以通过--data/-d方式指定使用POST方式传递数据
+#GET
+curl -u username https://api.github.com
+#POST
+curl -u username --data "param1=value1&param2=value" https://api.github.com
+#也可以指定一个文件,将该文件中的内容当作数据传递给服务器
+curl --data @filename https://githbu.api.com/authorizations
+#注意:通过POST方式传递数据,特殊字符需要事先转义,如空格转换为%20
+curl -d "value%201" http://hostname.com
+#--data-urlencode选项提供的参数会自动转义特殊字符
+curl --data-urlencode "value 1" http://hostname.com
+#除了使用GET和POST协议外,还可以通过-X选项指定其它协议,-I显示文档信息即head
+curl -I -X https://api.github.com
+#上传文件
+curl --form "fileupload=@filename.txt" http://hostname/resource
+==============================================================================
+watch刷新监控
+=============
+在watch后面接运行的命令,watch就会重复运行,每次结果都更新在屏幕上,默认2s间隔
+-n	指定时间间隔
+-d	高亮显示变动
+----------------------
+watch -n 1 -d netstat -ant
+watch -d -n 1 netstat -ntpl
+watch uptime
+watch -n 60 from  //监控mail
+watch -n 1 "df -i;df"  //监测磁盘inode和block数目变化情况
+watch -n 1 -d 'pstree | grep http'  //显示http连接数的变化情况
+watch -d 'ls -l | grep file'  //监测当前目录中file文件的变化
+==============================================================================
+==============================================================================
