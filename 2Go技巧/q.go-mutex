@@ -1,0 +1,165 @@
+==============================================================================
+互斥锁(sync.Mutex{})  读写锁(sync.RWMutex{})  组等待(sync.WaitGroup{})
+==============================================================================
+互斥锁
+------
+可以使用原子操作来管理简单的计数器，即多个协程对同一个值进行计数使用的是原子的
+简单操作。但对于更加复杂的情况，可以使用一个互斥锁来在Go协程间安全的访问数据。
+sync.Mutex{}
+sync.Mutex{}.Lock() 确保独占访问
+sync.Mutex{}.Unlock() 解除独占访问
+-----------------------------------
+var mutex sync.Mutex
+
+func write() {
+	mutex.Lock()
+	defer mutex.Unlock() 
+	.....
+	.....
+}
+------------------------------------
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"runtime"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+func main() {
+	
+	var state = make(map[int]int)
+
+	var mutex = &sync.Mutex{}
+
+	var ops int64 = 0
+
+	
+	//运行100个Go协程来重复读取state
+	for r := 0; r < 100; r++ {
+		go func() {
+			total := 0
+			for {
+				key:=rand.Intn(5)
+				mutex.Lock()	//确保对state的独占访问
+				total+=state[key]
+				mutex.Unlock()	//解除对state的独占访问
+				atomic.AddInt64(&ops,1)
+
+				//为了确保这个Go协程不会在调度中饿死，需在每次
+				//操作后明确的使用runtime.Gosched()进行释放。
+				runtime.Gosched()
+			}
+		}{}
+	}
+
+
+	//===============================================
+	//同样，运行10个Go协程来模拟写入操作，使用和读取相同的模式。
+	for w := 0; w < 10; w++ {
+		go func() {
+			for {
+				key := rand.Intn(5)
+				val := rand.Intn(100)
+				mutex.Lock()
+				state[key] = val
+				mutex.Unlock()
+				atomic.AddInt64(&ops,1)
+				runtime.Gosched()
+			}
+		}()
+	}
+
+	//让100个读协程和10个写协程对state和mutex的操作运行1s。
+	time.Sleep(time.Second)
+
+	//获取最终的操作计数
+	opsFinal := atomic.LoadInt64(&ops)
+	fmt.Println("ops:",opsFinal)
+
+	//对state使用一个最终的锁，显示最终的结果。
+	mutex.Lock()
+	fmt.Println("state:",state)
+	mutex.Unlock()
+}
+==============================================================================
+读写锁
+------
+读写锁是针对对读写操作的互斥锁.它与普通的互斥锁最大的不同就是,它可以分别针对读
+操作和写操作进行锁定和解锁操作.读写锁遵循的访问控制规则与互斥锁有所不同.在读写
+锁管辖的范围内,它允许任意个读操作任意个读操作同时进行.但是,在同一时刻,它只允许
+有一个写操作在进行.并且,在某一个写操作被进行的过程中,读操作的进行也是不被允许
+的.也就是说,读写锁控制下的多个写操作之间都是互斥的,并且写操作与读操作之间也都
+是互斥的.但是,多个读操作之间却不存在互斥关系.
+读写锁可以在降低因使用锁而对程序性能造成的损耗情况下完成对共享资源的访问控制.
+---------------
+sync.RWMutex{}
+sync.RWMutex{}.Lock()
+sync.RWMutex{}.Unlock()
+//这两个方法分别代表了对写操作的锁定和解锁
+sync.RWMutex{}.RLock()
+sync.RWMutex{}.RUnlock()
+//这两个方法分别表示了对读操作的锁定和解锁
+sync.RWMutex{}.RLocker()
+这个RLocker方法会返回一个实现了sync.Locker接口的值.sync.Locker接口类型包含了两
+个方法:Lock和Unlock.其实,*sync.Mutex类型和*sync.RWMutex类型都是该接口类型的实
+现类型而在调用*sync.RWMutex类型值的RLocker方法之后所得到的结果值就是这个值本身.
+只不过,这个结果值的Lock方法和Unlock方法分别对应了针对该读写锁的读锁定操作和读
+解锁操作.
+==============================================================================
+组等待
+------
+sync.WaitGroup{}
+sync.WaitGroup{}.Add()
+sync.WaitGroup{}.Done()
+sync.WaitGroup{}.Wait()
+类型sync.WaitGroup是一个结构体类型.在其中有一个代表计数的字段.当sync.WaitGroup
+类型的变量被声明之后,其值中的那个计数值将会是0.
+Add()方法可以增大或减少其中的计数值.
+Done()方法使其中的计数值减一.
+----------------
+var wg sync.WaitGroup
+wg.Add(6)
+wg.Add(-3) //与三个Done()等价
+wg.Done()
+wg.Done()
+wg.Done()
+-------------
+虽然Add()可接受负值,Done()可以减值,但是不要将计数值变为负数,因为这样会立即引发
+一个运行恐慌.
+---------------
+Wait()方法的调用是来检查计数值的.如果这个计数值为0.那么该方法会立即返回,且不会
+对程序的运行产生任何影响.但是,如果这个计数值大于0,那么该方法调用方的Goroutine
+就会被阻塞.知道该计数值重新变为0时,被阻塞的Goroutine才会被唤醒.
+这个类型的值一般备用来协调多个Goroutine的运行.假设,在我们的程序中启用了4个协程,
+分别是G1,G2,G3和G4.其中,G2,G3和G4是由G1中的代码启用并被用于执行某些特定任务的.
+G1在启用这3个Goroutine之后要等待这些特定任务的完成,这时该方法就比较适合.
+-----------------
+var wg sync.WaitGroup
+wg.Add(3)
+
+go func() { //G2
+	.....
+	.....
+	wg.Done()
+}()
+
+go func() { //G3
+	....
+	....
+	wg.Done()
+}()
+
+go func() { //G4
+	....
+	....
+	wg.Done
+}()
+
+wg.Wait()
+fmt.Println("G2,G3 and G4 are ended.")
+==============================================================================
+==============================================================================
