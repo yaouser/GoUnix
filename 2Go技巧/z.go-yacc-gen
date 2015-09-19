@@ -1,0 +1,470 @@
+==============================================================================
+Lex(Lexical Analyzar)词汇分析  Yacc(Yet Another Compiler Compiler)另一个编译器
+Lex的GUN版本为flex  Yacc的GUN版本为bison  flex和bison是兼容lex和yacc的
+Lex主要是定义词汇,而Yacc则是根据Lex定义的词汇执行Yacc中相应的动作,即语法解析器
+------------------------------------------------------------------------------
+Lex是一种生成扫描器的工具.扫描器是一种识别文本中的词汇模式的程序.
+当Lex接受到文件或文本形式的输入时,他试图将文本与常规表达式进行匹配.
+一次读入一个输入字符,直到找到一个匹配模式.如果能找到一个匹配模式,Lex就执行相关
+的动作(可能包括返回一个标记).如果没有可以匹配的常规表达式,将会停止进一步处理,
+Lex将显示一个错误消息.
+-------------
+Lex编程3步:
+1以Lex可以理解的格式指定模式相关的动作.
+2在这一文件上运行Lex,生成扫描器的C代码.
+3编译和链接C代码,生成可执行的扫描器.(使用yacc生成扫描器)
+-------------------
+Lex程序分为三个段:
+第一段是C和Lex的全局声明.
+第二段包括模式匹配规则(C代码).
+第三段是补充的C函数.(一般都有main()函数)
+#这些段以%%来分界.第一段和第三段是C代码.
+------------------
+#一个字数统计Lex程序示例
+第一段:
+%{
+	int wordCount = 0;
+%}
+chars [A-Za-z\_\'\.\"]
+numbers ([0-9])+
+delim [" "\n\t]
+whitespace {delim}+
+words {chars}+
+%%
+#这两个百分号标记指出了Lex程序中第一段的结束和第二段的开始.
+第二段:
+{words} {
+wordCount++;
+/* increase the word count by one */
+}
+{whitespace} {
+/* do nothing */
+}
+{numbers} {
+/* one may want to add some processing here */
+}
+%%
+第三段:
+void main() {
+	yylex();/*start the analysis*/
+	printf(" No of words:%d\n",wordCount);
+}
+int yywrap() {
+	return 1;
+}
+#这一段必须包括yywrap()函数.
+#Lex有一套可供使用的函数和变量.
+-------------------------------
+Lex有几个函数和变量提供了不同的信息,可以用来编译实现复杂函数的程序.
+这些变量和函数都是以yy开头,其实是yacc定义的相关执行动作在lex中调用了.
+
+Lex变量:
+------------------------------------------------------------------------------
+yyin		FILE*类型.他指向lexer正在解析的当前文件.
+------------------------------------------------------------------------------
+yyout		FILE*类型.他执行记录lexer输出的位置.
+		缺省下yyin和yyout指向标准输入和输出.
+------------------------------------------------------------------------------
+yytext		匹配模式的文本额存储在这一变量中(char*).
+------------------------------------------------------------------------------
+yyleng		给出匹配模式的长度.
+------------------------------------------------------------------------------
+yylineno	提供当前的行数信息
+------------------------------------------------------------------------------
+
+Lex函数:
+------------------------------------------------------------------------------
+yylex()		这个函数开始分析.他有Lex自动生成.
+------------------------------------------------------------------------------
+yywrap()	这个函数在文件(或输入)的末尾调用.如果函数的返回值是1,就停止解
+		析.使用该函数放在第三段中可以解析多个文件.方法是使用yyin文件指
+		针指向不同的文件,知道所有的文件都被解析.最后,yywrap()可以返回1
+		来表示解析的结束.
+------------------------------------------------------------------------------
+yyless(int n)	这个函数可以用来送回除了前n个字符外的所有读出标记.
+------------------------------------------------------------------------------
+yymore()	这一函数告诉Lexer将下一个标记附加到当前标记后.
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+Yacc将任何一种编程语言的所有语法翻译成针对此种语言的Yacc语法解析器.
+Yacc用巴克斯范式(BNF)来书写.
+----------------------
+Yacc生成一个解析器:
+  *编写一个.y的语法文件(同时说明C在这里要进行的动作).
+  *编写一个词法分析器(lex)来处理输入并将标记传递给解析器.(使用lex来完成)
+  *编写一个函数,通过调用yyparse()来开始解析.
+  *编写错误处理历程(如yyerror()).
+----------------
+一个编译器工作流程:
+1源代码(source code).
+2用lex分析源代码标记token,生成词法分析器的可执行程序(C程序).
+3用yacc根据lex分析的token来执行相应的动作,即解析器.
+4编译yacc生成的代码以及其它相关的源文件.
+5将源代码链接到适当的可执行解析器库.
+---------------------------------------
+Yacc的编写语法和Lex编写语法类似也用%%分为三段.分别是:声明 语法规则 C代码.
+类似与Lex,Yacc也有一套变量和函数可供用户来进行功能扩展.
+如,YYSTYPE定义了用来将值从lexer拷贝到解析器或Yacc的yylval(一个yacc变量)的类型.
+Yacc程序:
+第二段:
+动作解析语法
+token: action {
+	/* action to be taken in C */
+};
+文件解析语法
+file: exec file
+	| exec;
+	exec: action {
+		/* action to be taken in C */
+	};
+第三段:
+void main() {
+	yyparse();
+}
+int yyerror(char* msg) {
+		printf("Error:%s\n",msg);
+}
+#一个函数如main()调用yyparse()函数如lex的yylex()等效函数.
+#yacc提供yyerror(char msg)函数代码.
+#当解析器遇到错误时调用yyerror(char msg)
+
+==================以上是C语言中的lex(flex)/yacc(bison)=======================
+上面C语言的lex/yacc工具的介绍为理解Go语言中的generate/yacc工具打下了基础,因为
+C和Go中yacc的语法是极度类似的,好了,这两门语言的作者也都差不多一样.
+========================下面是Go的generate/yacc==============================
+
+go generate
+-----------
+该命令可以做些什么?
+  *yacc:从.y文件生成.go文件.
+  *protobufs:从protocol buffer定义文件(.proto)生成.pb.go文件.
+  *unicode:从unicodeData.txt生成unicode表.
+  *HTML:将HTML文件嵌入到go源码.
+  *bindata:将形如JPEG这样文件转成go代码中的数组.
+  *为类似枚举常量这样的类型生成String() string方法.
+  *宏:为既定的泛型生成特定的实现,例如用于ints的sorts.ints.
+  *golang源码包中使用cgo关联的C源码基本上是由该命令维护的.
+
+运行go generate的时候,他扫描go源码文件,查找那些指令,逐个执行生成器,输入出新的
+go源码.
+Go源代码中的go generate生成指令可能出现在go源码文件的任意位置,生成工具会按顺序
+(非并行)处理.每个指令是一行以//开头的注释,语法为:
+//go:generate command arg...
+例如在yacc中的运用:
+//go:generate yacc -o gopher.go gopher.y
+command可以是go tool的命令也可以是shell命令或shell脚本.
+如果某个generate以错误张太退出,后续的generate就不会运行.
+
+该命令的设计机制:
+1该命令的设计为包作者使用,而非包的使用者.
+2go build不会引发go源码包中的//go:generate command命令,只有显示调用时才会执行.
+3该命令只能作用于go源码文件和包.
+(这就是指令为什么要写在go文件--例如--而非yacc生成器的.y文件里)
+
+结合yacc开发者的工作流程:
+1通过修改.y文件修复bug.
+#包my/own/gopher,在文件gopher.y中包含了yacc语句,在其中修复bug.在main.go中写入
+#我们的指令: //go:generate yacc -o gopher.go gopher.y
+2调用go generate命令修复go源代码.
+#不在当前目录 go generate my/own/gopher
+#在当前目录 go generate
+##如果确定只运行yacc更新当前目录的文件,可以执行 go generate -run yacc
+##如果要更新代码树中所有的yacc生成的文件,可以执行 go generate -run yacc all
+
+对于包开发这典型的工作循环为:
+edit ...
+go generate
+go test
+git add *.go
+git commit -m "..."
+git push
+
+示例:
+
+字符串方法
+编写String() string方法生成器strmeth.
+//go:generate strmeth Day -o day_string.go $GOFILE
+//Day represents the day of the week
+type Day int
+const (
+	Sunday Day = iota
+	Monday 
+	...
+)
+
+Yacc
+定制一个命令
+//go:generate -command yacc to tool yacc
+在main.go的某处写下:
+//go:generate yacc -o foo.go foo.y
+
+Protocal buffers
+在main.go中,为每一个protocol buffer文件写下如下一行
+//go:generate protoc -go_out=. file.proto
+借助protoc的运行方式,可以在一个.pb.go文件中生成多个proto定义.
+//go:generate protoc -go_out=. file1.proto file2.proto
+
+Binary data
+有个工具可以把二进制数据变成字节数组写进go文件里
+//go:generate bindata -o jpegs.go pic1.jpg pic2.jpg pic3.jpg
+这说明要在go源码中写generate注释的原因:没有什么好办法把它们注入到二进制文件里.
+
+------------------------------------------------------------------------------
+yacc
+----
+让我们来看一下Go语言中一个完整的例子,这其中有两个文件分别是:main.go expr.y
+这是一个和lex/yacc类似的计算器解析器经典的例子.如下:
+-----------
+main.go文件
+-----------
+// Copyright 2014 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// This file holds the go generate command to run yacc on the grammar in expr.y.
+// To build expr:
+//	% go generate
+//	% go build
+
+//go:generate -command yacc go tool yacc
+//go:generate yacc -o expr.go -p "expr" expr.y
+
+// Expr is a simple expression evaluator that serves as a working example of
+// how to use Go's yacc implementation.
+package main
+--------------------------------------------------
+结合generate命令这个文件不难理解,这里不再赘述了.
+----------
+expr.y文件
+----------
+// Copyright 2013 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// This is an example of a goyacc program.
+// To build it:
+// go tool yacc -p "expr" expr.y (produces y.go)
+// go build -o expr y.go
+// expr
+// > <type an expression>
+
+//声明包名和需要导入的包 %{ %}
+%{
+
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"io"
+	"log"
+	"math/big"
+	"os"
+	"unicode/utf8"
+)
+
+%}
+
+//声明Go语言中的一个*big.Rat数据类型num
+%union {
+	num *big.Rat
+}
+
+//声明四个num类型expr expr1 expr2 expr3
+%type	<num>	expr expr1 expr2 expr3
+
+//声明六个运算标志符
+%token '+' '-' '*' '/' '(' ')'
+
+//在yacc中将num映射为NUM标识符
+%token	<num>	NUM
+
+//yacc的第一段结束
+%%
+
+//顶层表达式的执行,Go语言中的yacc当然是用Go语言代码执行匹配的动作
+//C语言中的yacc当然使用C语言代码执行匹配动作
+top:
+	expr
+	{
+		if $1.IsInt() {
+			fmt.Println($1.Num().String())
+		} else {
+			fmt.Println($1.String())
+		}
+	}
+
+//巴斯科范式(BNF)从右至左的迭代替换
+//$$ $1 $2 $3类似与shell脚本的参数
+//=================================
+//($$ expr1) ($1 +) ($2 expr)
+expr:
+	expr1
+|	'+' expr
+	{
+		$$ = $2
+	}
+|	'-' expr
+	{
+		$$ = $2.Neg($2)
+	}
+
+expr1:
+	expr2   		//($$ expr2)
+|	expr1 '+' expr2		//($1 expr1) ($2 +) ($3 expr2)
+	{
+		$$ = $1.Add($1, $3)
+	}
+|	expr1 '-' expr2		//($1 expr1) ($2 -) ($3 expr2)
+	{
+		$$ = $1.Sub($1, $3)
+	}
+
+expr2:
+	expr3
+|	expr2 '*' expr3
+	{
+		$$ = $1.Mul($1, $3)
+	}
+|	expr2 '/' expr3
+	{
+		$$ = $1.Quo($1, $3)
+	}
+
+expr3:
+	NUM
+|	'(' expr ')'
+	{
+		$$ = $2
+	}
+
+//yacc的第二段结束
+%%
+
+// The parser expects the lexer to return 0 on EOF.  Give it a name
+// for clarity.
+//词法分析器lexer在正确结束时返回给解析器一个0.为了清楚起见,给它一个eof的名字.
+const eof = 0
+
+// The parser uses the type <prefix>Lex as a lexer.  It must provide
+// the methods Lex(*<prefix>SymType) int and Error(string).
+//解析器使用语法分析器的类型<prefix>Lex
+//词法分析器必须提供方法Lex(*<prefix>symType) int和Error(string)
+type exprLex struct {
+	line []byte
+	peek rune
+}
+
+// The parser calls this method to get each new token.  This
+// implementation returns operators and NUM.
+//解析器调用这个方法来得到每个新的token标记
+//这实现了返回操作符和NUM
+func (x *exprLex) Lex(yylval *exprSymType) int {
+	for {
+		c := x.next()
+		switch c {
+		case eof:
+			return eof
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return x.num(c, yylval)
+		case '+', '-', '*', '/', '(', ')':
+			return int(c)
+
+		// Recognize Unicode multiplication and division
+		// symbols, returning what the parser expects.
+		//识别Unicode中的乘法和除法标识符,返回给解析器期望的值
+		case '×':
+			return '*'
+		case '÷':
+			return '/'
+
+		case ' ', '\t', '\n', '\r':
+		default:
+			log.Printf("unrecognized character %q", c)
+		}
+	}
+}
+
+// Lex a number.
+//分析一个数字
+func (x *exprLex) num(c rune, yylval *exprSymType) int {
+	add := func(b *bytes.Buffer, c rune) {
+		if _, err := b.WriteRune(c); err != nil {
+			log.Fatalf("WriteRune: %s", err)
+		}
+	}
+	var b bytes.Buffer
+	add(&b, c)
+	L: for {
+		c = x.next()
+		switch c {
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', 'e', 'E':
+			add(&b, c)
+		default:
+			break L
+		}
+	}
+	if c != eof {
+		x.peek = c
+	}
+	yylval.num = &big.Rat{}
+	_, ok := yylval.num.SetString(b.String())
+	if !ok {
+		log.Printf("bad number %q", b.String())
+		return eof
+	}
+	return NUM
+}
+
+// Return the next rune for the lexer.
+//给词法分析器返回下一个rune
+func (x *exprLex) next() rune {
+	if x.peek != eof {
+		r := x.peek
+		x.peek = eof
+		return r
+	}
+	if len(x.line) == 0 {
+		return eof
+	}
+	c, size := utf8.DecodeRune(x.line)
+	x.line = x.line[size:]
+	if c == utf8.RuneError && size == 1 {
+		log.Print("invalid utf8")
+		return x.next()
+	}
+	return c
+}
+
+// The parser calls this method on a parse error.
+//在解析出错误时,解析器调用这个方法
+func (x *exprLex) Error(s string) {
+	log.Printf("parse error: %s", s)
+}
+
+//解析器的入口main函数
+func main() {
+	in := bufio.NewReader(os.Stdin)
+	for {
+		if _, err := os.Stdout.WriteString("> "); err != nil {
+			log.Fatalf("WriteString: %s", err)
+		}
+		line, err := in.ReadBytes('\n')
+		if err == io.EOF {
+			return
+		}
+		if err != nil {
+			log.Fatalf("ReadBytes: %s", err)
+		}
+
+		//真正的语法解析器开始了
+		exprParse(&exprLex{line: line})
+	}
+}
+------------------------------
+在Go中没有像C语言中的lex工具,看一下expr.y文件,其实我们已经在yacc的语法文件中实
+现了词法分析工具的功能.
+==============================================================================
+==============================================================================
