@@ -411,13 +411,55 @@ PREROUTING------->FORWARD------->POSTROUTING
 出站数据流向(使用公网DNS服务器)
 OUTPUT------->POSTROUTING
 
+进来的数据包都先有PREROUTING处理,出去的数据包都先有POSTROUTING处理
+
 ------------------双维表和链--------------
 
 filter表涉及了INPUT FORWARD OUTPUT三条链
-nat表涉及了PREROUTING POSTROUTING OUTPUT三条链
-mangle表涉及了PREROUTING POSTROUTING OUTPUT三条链
+nat表涉及了PREROUTING OUTPUT POSTROUTING三条链
+mangle表涉及了PREROUTING INPUT FORWARD OUTPUT POSTROUTING五条链
 raw表涉及了OUTPUT PREROUTING两条链
 
+-----------------------------------------------
+iptables的基本语法格式
+iptables [-t 表名] 命令行选项 [链名] [条件匹配] [ -j 目标动作或跳转]
+表名:
+filter nat mangle raw
+链名:
+PREROUTING INPUT FORWARD OUTPUT POSTROUTING
+目标动作或跳转:(-j代表的就是jump的意思)
+ACCEPT	数据包可通过
+DROP	丢弃数据包,无响应
+REJECT	拒绝数据包,会给数据发送段一个响应
+LOG	在/var/log/messages记录,之后传递下去
+命令行选项:
+-A(append)	追加一条新规则
+-D(delete)	删除链中的某一条规则
+-I(insert)	插入一条新规则
+-R(replace)	替换一条新规则
+-L(list)	指定链中规则的查看
+-F(flush)	清空
+-N(new)		新建一条用户自定义的规则链
+-X(delete)	删除指定表中用户自定义的规则链
+-P(policy)	设置指定链的默认策略
+-n(numeric)	使用数字形式显示输出结果
+注意这些都是用在规则链前面的选项
+条件匹配:
+-p 	icmp/tcp/udp ...
+-s 	192.168.1.1 192.168.0.0/24 192.168.0.0/16 10.0.0.0/8 ...
+-sport	22 80 23 20:1024 ...
+-i 	eth0 eth1 ...
+-d	192.168.1.1 192.168.0.0/24 192.168.0.0/16 10.0.0.0/8 ...
+--dport 22 80 23 ....
+-m	(module)这里指的是模块的意思,功能比较多
+注意这些都是用在规则链后面的选项
+-------------------------------------------
+iptables-save规则的保存与恢复
+保存:
+iptables-save > /etc/sysconfig/iptables
+恢复:
+在计算机启动时,rc.d的脚本将用命令iptables-restore调用这个文件.
+---------------------------------------------------------------
 
 =============================================================================
 =============================================================================
