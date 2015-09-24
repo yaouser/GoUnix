@@ -368,3 +368,56 @@ d.端口转发
 转发 22 端口数据至另一 ip 的 2055 端口上
 # firewall‐cmd ‐‐zone=external ‐‐add‐forward‐port=port=22:proto=tcp:toport=2055:toaddr=192.168.1.100
 =============================================================================
+系统网络工具netfilter/iptables
+------------------------------
+netfilter/iptables涉及到四个表和五条链.
+表和链是netfilter的两个维度.netfilter为网络过滤器.
+iptables是用来查看和修改这些规则及配置的命令行工具.
+iptables -t用来指定要操作的表.
+
+------------------单维表------------------
+
+四个表:
+filter(涉及到内核模块iptables_filter) 
+nat(涉及到内核模块iptables_nat)
+mangle(涉及到内核模块iptables_magle)
+raw(涉及到内核模块iptables_raw)
+
+filter		定义了那些包可以通过,哪些包不可以通过
+nat		定义了转发规则
+mangle		用来根据规则修改数据报文
+raw		决定数据包是否被状态跟踪机制处理
+
+它们的优先级别为raw > mangle > nat > filter,所以在定义规则的时候反着来.
+经常用的表为filter nat,而mangle raw这两个表不经常使用.
+通过我们只是处理过滤和转发.
+
+------------------单维链------------------
+
+五条链:
+PREROUTING	路由前钩子
+INPUT		数据包流入钩子
+FORWOARD	转发钩子
+OUTPUT		数据包出口钩子
+POSTROUTING	路由后钩子
+
+这五条链的顺序为数据流向的顺序
+路由前--->流入本机--->转发--->流出本机--->路由后
+
+入站数据流向(WEB服务器)
+PREROUTING------->INPUT
+转发数据流向(局域网内各个主机间的数据流动)
+PREROUTING------->FORWARD------->POSTROUTING
+出站数据流向(使用公网DNS服务器)
+OUTPUT------->POSTROUTING
+
+------------------双维表和链--------------
+
+filter表涉及了INPUT FORWARD OUTPUT三条链
+nat表涉及了PREROUTING POSTROUTING OUTPUT三条链
+mangle表涉及了PREROUTING POSTROUTING OUTPUT三条链
+raw表涉及了OUTPUT PREROUTING两条链
+
+
+=============================================================================
+=============================================================================
