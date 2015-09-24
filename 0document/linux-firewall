@@ -432,6 +432,8 @@ ACCEPT	数据包可通过
 DROP	丢弃数据包,无响应
 REJECT	拒绝数据包,会给数据发送段一个响应
 LOG	在/var/log/messages记录,之后传递下去
+SNAT	来源转发
+DNAT	目的地转发
 命令行选项:
 -A(append)	追加一条新规则
 -D(delete)	删除链中的某一条规则
@@ -447,7 +449,7 @@ LOG	在/var/log/messages记录,之后传递下去
 条件匹配:
 -p 	icmp/tcp/udp ...
 -s 	192.168.1.1 192.168.0.0/24 192.168.0.0/16 10.0.0.0/8 ...
--sport	22 80 23 20:1024 ...
+--sport	22 80 23 20:1024 ...
 -i 	eth0 eth1 ...
 -d	192.168.1.1 192.168.0.0/24 192.168.0.0/16 10.0.0.0/8 ...
 --dport 22 80 23 ....
@@ -460,6 +462,61 @@ iptables-save > /etc/sysconfig/iptables
 恢复:
 在计算机启动时,rc.d的脚本将用命令iptables-restore调用这个文件.
 ---------------------------------------------------------------
-
+实例一:简单的nat路由器
+环境介绍:
+两个网络接口
+Lan口<----->10.1.1.254/24 eth0
+Wan口<----->60.1.1.1/24 eth1
+目的:实现内网中的节点(10.1.1.0/24)可控的访问internet.
+1 确认配置lan节点pc的ip地址正确,并指向正确的网关10.1.1.254(客户端)
+  确认服务器linux的各项配置正确,能够ping通内外网,正常上网(服务端)
+2 使用sysctl net.ipv4.ip_forward=1的转发功能.
+3 iptables -P FORWARD DROP
+  将FORWARD链的策略设置为DROP,这样的目的是做到对内网ip的控制,允许哪一个访问
+  internet就可以增加一个规则,不在规则中的ip将无法访问internet
+4 iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
+  这条规则规定允许任何地址到任何地址的确认包和关联包通过.如果不加这一条的话,
+  只允许lan ip访问,这样不在规则里的ip将无法访问internet.
+5 iptables -t nat -A POSTROUTING -s 10.1.1.0/24 -j SNAT --to 60.1.1.1
+  这条规则做了一个SNAT,也就是源地址转换,将来自10.1.1.24的地址转换为60.1.1.1
+--------------简单的nat路由器完成,将允许访问的ip添加至FORWARD链-------------
+iptables -A FORWARD -S 10.1.1.9 -j ACCEPT
+可以让10.1.1.9这个地址访问internet了
+iptables -A FROWARD -s 10.1.1.99 -d 3.3.3.3 -j ACCEPT
+可以精确的控制访问地址,允许10.1.1.99访问3.3.3.3这个ip
+iptables -A FORWARD -s 10.1.1.0/24 -p tcp --dport http -j ACCEPT
+只允许内网的地址访问80端口
+-----------------------------------------------------------------------------
+实例二:端口转发
+环境介绍:
+两个网络接口
+Lan口<------>10.1.1.254/24 eth0
+Lan内web server<------>10.1.1.1:80
+Lan内ftp server<------>10.1.1.2:21
+Wan口<------>60.1.1.1/24 eth1
+目的:对内部server进行端口转发实现internet用户访问内网服务器
+1 确认linux的各项配置正常,能够访问内外网.
+2 iptables -P FORWARD DROP(同上例)
+3 iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT(同上例)
+4 iptables -t nat -A PREROUTING -d 60.1.1.1 -p tcp --dport 80 -j DNAT --to 10.1.1.1:80
+  把访问60.1.1.1:80的数据包转发到lan内web server
+5 iptables -t nat -A PREROUTING -d 60.1.1.1 -p tcp --dport 21 -j DNAT --to 10.1.1.2:21
+  把访问60.1.1.1:21的数据包转发到lan内10.1.1.2:21
+6 iptables -A FORWARD -d 10.1.1.1 -p tcp --dport 80 -j ACCEPT
+  iptables -A FORWARD -d 10.1.1.2 -p tcp --dport 21 -j ACCEPT
+  在2中我们使用了drop策略,对于那些进入内网的流量没有符合的规则,就直接的丢弃了,
+  所以对于6中的规则是一定要添加的.
+7 iptables -t nat -A POSTROUTING -d 10.1.1.1 -p tcp --dport 80 -j SNAT --to 10.1.1.254
+  iptables -t nat -A POSTROUTING -d 10.1.1.2 -p ftp --dport 21 -j SNAT --to 10.1.1.254
+  这个规则其实就是规则链中FORWARD-->POSTROUTING的数据流向的问题,由于外面的数据
+  包流到这里没有相应的规则,所以要添加上.
+----------------------------两个实例的比较-----------------------------------
+这两个实例采用的思路是一样的,但是看起来实例一要比实例二要简单,其实是一样的,将
+数据的流动作为主线分析,就很容易的能够理解了,在理解的过程中要注意数据的流动方向
+问题,这些涉及到netfilter/iptables的是处理物理硬件发送过来的数据包,处理之后再
+发送给上层的应用程序,因为它们是处于内核这个层面的.另外,网络包数据在内核层的流
+动时,是按照工具链来依次处理的,只要数据包在工具链的依次处理过程中有相应的规则链
+处理就能够达到自己的目的.
+链规则像是道路上的关卡,查验守门,而表规则更像是道路上的驿站,提供各种服务.
 =============================================================================
 =============================================================================
