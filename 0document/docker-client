@@ -1,0 +1,177 @@
+==============================================================================
+1.查看某一个command的详细使用方法：
+**docker COMMAND --help
+
+2.搜索可用的docker镜像：
+**docker search NAME
+
+3.下载镜像：
+**docker pull NAME[:TAG]
+
+4.查看安装的镜像：
+**docker images [NAME]
+
+5.在docker容器中运行的命令：
+**docker run IMAGE [COMMAND][ARG...]
+**docker run命令有两个参数.
+**一个是镜像名，一个是要在镜像中运行的命令。
+**如docker run centos echo 'hello world!'
+
+6.列出容器：
+**docker ps -a 
+**查看最近生成的容器：docker ps -l
+**查看正在运行的容器：docker ps
+
+7.显示容器的标准输出：
+**docker logs CONTAINERID
+**一般写最开始的三至四个字符即可。
+
+8.在容器中安装新程序：
+**docker run centos yum install -y net-tools
+**如果yum不指定-y参数的话，yum命令会进入交互模式，需要用户输入
+**命令进行确认，在docker环境中是无法响应这种交互的。
+**使用docker run的-i -t参数就会响应这种交互。
+**比如，docker run -i -t centos yum install net-tools
+
+9.保存对容器的修改并生成新的镜像：
+**docker commit CONTAINERID [REPOSITORY[:TAG]]
+**REPOSITORY参数可以是新的镜像名字，也可以是旧的镜像名；
+**如果同旧的镜像名及TAG都相同，会覆盖掉旧的镜像。
+
+10.停止正在运行的容器：
+**docker stop CONTAINERID
+**默认等待10秒钟再杀死指定容器。可以使用-t参数来设置等待时间。
+
+11.查看容器或镜像的详细信息：
+**docker inspect CONTAINERID|IMAGE
+**参数可以是容器的ID或者是镜像名（NAME:TAG）
+
+12.删除容器：
+**docker rm CONTAINERID
+**查看所有容器ID：docker ps -a -q
+**删除所有容器：docker rm $(docker ps -a -q)
+
+13.删除镜像：
+**docker rmi IMAGE
+14.查看docker的信息，包括containers和images数目，kernel版本等。
+**docker info 
+
+15.创建一个新容器并登入：
+**docker run -i -t IMAGE /bin/bash
+
+16.启动一个退出的容器：
+**docker start CONTAINERID
+
+17.连接(attach)到运行中的容器：
+**docker attach CONTAINERID
+
+=============================================================================
+
+----------------------------
+docker create/docker run区别
+----------------------------
+docker create创建的容器处于停止状态.
+docker run不仅创建了容器,而且启动了容器.
+
+--------
+容器命名
+--------
+docker --name=... 标志为容器指定一个名字,这是一个可选项.如果不指定的话,会取一
+个随机的名字.
+
+--------------
+容器的文件系统
+--------------
+容器的文件系统是在只读的镜像文件上增加一层可读写的文件层,这样可以保证镜像不变
+而只记录改变的数据,这对容器的共享和传输都非常有利.
+
+--------
+容器网络
+--------
+容器启动的时候会进行网络的配置,首先会分配一个虚拟网络接口,并通过网桥的方式将
+该网络接口桥接到宿主主机上去,然后该虚拟网络接口分配一个IP地址.
+
+----------
+交互型容器
+----------
+docker -i -t标志用于创建交互型的容器
+
+----------
+后台型容器
+----------
+使用 docker -d 可以创建一个后台型容器.
+
+--------
+依附容器
+--------
+依附操作attach通常用在由docker start或者docker restart启动的交互型容器中.由于
+docker start启动的交互型容器并没有具体终端可以依附,而容器本身是可以接收用户交
+互的,这时就需要通过attach命令来将终端依附到容器上.
+注意:通过docker -d创建的后台型容器是无法依附终端的,因为他本身就不接受用户交互
+输入.
+
+--------
+容器日志
+--------
+docker logs -f containername
+-f标志可以看到从开始一直输出到当前时刻的
+
+docker logs -f --tail=5 containername
+使用--tail=5可以精确控制logs输出的日志行数,--tail=all 输出所有
+
+docker logs -f --tail=5 -t containername
+使用-t标志查看日志产生的时刻
+
+------------
+查看容器进程
+------------
+docker top containername
+
+------------
+查看容器信息
+------------
+docker inspect containername
+docker inspect用于查看容器的配置信息,包含容器名,环境变量,运行命令,主机配置,网
+络配置和数据卷配置等.
+
+docker inspect --format='{{.State.Running}}' containername
+docker inspect --format='{{.NetworkSettings.IPAddress}}' containername
+docker inspect --format='{{.Name}} {{.State.Running}}' containername
+使用-f或者--format格式化标志,可以产看指定部分的信息.
+
+--------------
+容器内执行命令
+--------------
+docker exec -d containername touch /etc/new_config_file
+docker exec -t -i containername /bin/bash
+
+----------------
+容器的导入和导出
+----------------
+运行一个容器
+docker run -it --name=inspect_import ubuntu /bin/bash
+修改
+.........
+导出
+docker export inspect_import > my_container.tar
+
+导入
+cat my_container.tar | sudo docker import - imported:container
+通过一个URL来导入网络上的容器
+docker import url res:tag
+
+=============================================================================
+创建本地镜像(commit)
+====================
+#docker run -it ubuntu
+root@xxxxxx:/#apt-get update
+root@xxxxxx:/#apt-get install sqlite3
+root@xxxxxx:/#echo "docker commit" >> testdocker
+root@xxxxxx:/#exit
+
+#docker commit -m="Message" --author="yao" containerID newconname
+参数-m是描述这次新建镜像的信息
+#docker export newconname > testdocker.tar (导出)
+#cat testdocker.tar | docker import - namecontainer:tag
+=============================================================================
+=============================================================================
