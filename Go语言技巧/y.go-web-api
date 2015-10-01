@@ -548,5 +548,218 @@ RESTful API最好做到Hypermedia,即返回结果中提供链接,连向其他API
 API的什么认证应该使用OAuth 2.0框架.
 服务器返回的数据格式,应该尽量使用JSON,避免使用XML.
 ==============================================================================
+OAuth 2.0(open auth)
+====================
+
+适用场景:
+云存储上的个人数据,需要临时授权给第三方应用程序,如果要是输入帐号和密码的话,这
+样第三方的应用程序就有可能记录你的帐号和密码,不安全,有可能泄漏所有的数据.通过
+OAuth授权不用输入帐号和密码就能够解决这样的问题.
+
+---------------------------
+
+OAuth的思路:
+OAuth在第三方的客户端与服务提供商之间,设置了一个授权层.客户端不能直接登录服务
+提供商,只能登录授权层,以此将用户与客户端分开来.客户端登录授权层所用令牌(token)
+与用户的密码不同.用户可以在登录的时候,指定授权层令牌的权限范围和有效期.
+客户端登录授权层以后,服务提供商根据令牌的权限范围和有效期,向客户端开放用户储存
+的资料.
+
+--------------------------------------
+
+运行流程:
+
++--------+                                        +------------+
+|        |--------------(A)授权请求-------------->|            |
+|        |                                        | 资源拥有者 |
+|        |<-------------(B)授权分发---------------|            |
+|        |                                        +------------+
+|        |                                        +------------+
+|        |--------------(C)授权分发-------------->|            |
+| 客户端 |                                        |  授权服务  |
+|        |<-------------(D)访问令牌---------------|            |
+|        |                                        +------------+
+|        |                                        +------------+
+|        |--------------(E)访问令牌-------------->|            |
+|        |                                        | 资源服务器 |
+|        |<-----------(F)被保护的资源-------------|            |
++--------+                                        +------------+
+
+B步骤是关键,即用户怎样才能该客户端授权.
+
+----------------------------
+
+客户端的授权模式:
+
+授权码模式
+简化模式
+密码模式
+客户端模式
+
+-------------------------
+
+授权码模式:
+授权码模式(authorization code)是功能最完整,流程最严密的授权模式.他的特点就是通
+过客户端的后台服务器,与服务提供商的认证服务器进行互动.
+
+步骤:
+A 用户访问客户端,后者将前者导向认证服务器.
+B 用户选择是否给予客户端授权.
+C 假设用户给予授权,认证服务器将用户导向客户端事先指定的"重定向URI",同时附上一
+  个授权码.
+D 客户端收到授权码,附上早先的"重定向URI",向认证服务器申请令牌.这一步是在客户端
+  的后台的服务器上完成的,对用户不可见.
+E 认证服务器核对了授权码和重定向URI,确认无误后,向客户端发送访问令牌和更新令牌.
+  (access token && refresh token).
+
+重要的参数:
+
+A中,客户端申请认证的URI,包含以下参数:
+response_type	表示授权类型,必选项,此处的值固定为"code"
+client_id	表示客户端的ID,必选项
+redirect_uri	表示重定向URI,可选项
+scope		表示申请的权限范围,可选项
+state		表示客户端的当前状态,可以指定任意值,认证服务器会原封不动返回
+*例子:
+GET /authorize?response_type=code&client_id=s6Bhdrkqt3&state=xyz
+    &redirect_url=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb HTTP/1.1
+Host:server.example.com
+
+C中,服务器回应客户端的URI,包含以下参数:
+code	表示授权码,必选项.该码的有效期应该很短,通常设为10分钟,客户端只能使用该
+	码与客户端ID和重定向URI,是一一对应关系.
+state	如果客户端的请求中包含这个参数,认证服务器的回应也必须一模一样包含这个
+	参数.
+*例子:
+HTTP/1.1 302 Found
+Location: https://client.example.com/cb?code=SplxlOBeZQQYbYS6WxSbIA&state=xyz
+
+D中,客户端向认证服务器申请令牌的HTTP请求,包含以下参数:
+grant_type	表示使用的授权模式,必选项,此处的值固定为"authorization_code".
+code		表示上一步获得的授权码,必选项.
+redirect_uri	表示重定向URI,必选项,且必须与A中的gai参数值保持一致.
+client_id	表示客户端ID,必选项.
+*例子:
+POST /token HTTP/1.1
+Host:server.example.com
+Authorization:Basic czZCaGRSa3F0MzpnWDFmQmF0M2jW
+Content-Type:application/x-www-form-urlencoded
+grant_type-authorization_code&code=SplxlOBeZQQYbYS6WxSbIa
+&redirect_url=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb
+
+E中,认证服务器发送的HTTP回复,包含以下参数:
+access_token	表示访问令牌,必选项.
+token_type	表示令牌类型,大小写敏感,必选项.
+expires_in	表示过期时间,单位为秒.如省略该参数,必须用其他方式设置过期时间
+refresh_token	表示更新令牌,用来获取下一次的访问令牌,可选项.
+scope		表示权限范围,如果与客户端申请的范围一致,此项可省略.
+*例子:
+HTTP/1.1 200 OK
+Content_Type:application/json;charset=UTF-8
+Cache-Control:no-store
+Pragma:no-cache
+{
+	"access_token":"2YotnFZFEjr1zCsicMWpAA",
+       	"token_type":"example",
+       	"expires_in":3600,
+       	"refresh_token":"tGzv3JOkF0XG5Qx2TlKWIA",
+       	"example_parameter":"example_value"
+}
+
+----------------------
+
+简化模式:
+
+简化模式(implicit grant type)不通过第三方应用程序的服务器,直接在浏览器中向认证
+服务器申请令牌,跳过了"授权码"这个步骤,因此得名.所有步骤在浏览器中完成,令牌对访
+问者是可见的,且客户端不需要认证.
+
+*例子:
+(A)
+GET /authorize?response_type=token&client_id=s6BhdRkqt3&state=xyz
+    &redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb HTTP/1.1
+Host:server.example.com
+(C)
+HTTP/1.1 302 Found
+Location:http://example.com/cb#access_token=2YotnFZFEjr1zCsicMWpAA
+               &state=xyz&token_type=example&expires_in=3600
+
+---------------------------------------------------------------
+
+密码模式:
+密码模式中,用户向客户端提供自己的用户名和密码.客户端使用这些细心,向服务提供商
+所要授权.在这种模式中,用户必须把自己的密码给客户端,但是客户端不得存储密码.
+
+重要参数:
+客户端发出的HTTP请求中包含的参数
+grant_type	表示授权类型,此处的值固定为"password",必选项
+username	表示用户名,必选项
+password	表示用户的密码,必选项
+scope		表示权限范围,可选项
+
+例子:
+(客户端)
+POST /token HTTP/1.1
+Host: server.example.com
+Authorization: Basic czZCaGRSa3F0MzpnWDFmQmF0M2JW
+Content-Type: application/x-www-form-urlencoded
+grant_type=password&username=johndoe&password=A3ddj3w
+(服务端)
+HTTP/1.1 200 OK
+Content-Type: application/json;charset=UTF-8
+Cache-Control: no-store
+Pragma: no-cache
+{
+       "access_token":"2YotnFZFEjr1zCsicMWpAA",
+       "token_type":"example",
+       "expires_in":3600,
+       "refresh_token":"tGzv3JOkF0XG5Qx2TlKWIA",
+       "example_parameter":"example_value"
+}
+
+------------------------
+
+客户端模式:
+客户端模式指客户端以自己的名义,而不是以用户的名义,向服务提供商进行认证.严格说,
+客户端模式并不属于OAuth框架所要解决的问题.在这种模式中,用户直接向客户端注册,客
+胡段以自己的名义要求服务提供商提供服务,其实不存在授权问题.
+
+例子:
+
+POST /token HTTP/1.1
+Host: server.example.com
+Authorization: Basic czZCaGRSa3F0MzpnWDFmQmF0M2JW
+Content-Type: application/x-www-form-urlencoded
+grant_type=client_credentials
+
+HTTP/1.1 200 OK
+Content-Type: application/json;charset=UTF-8
+Cache-Control: no-store
+Pragma: no-cache
+{
+       "access_token":"2YotnFZFEjr1zCsicMWpAA",
+       "token_type":"example",
+       "expires_in":3600,
+       "example_parameter":"example_value"
+}
+
+-------------------------------
+
+更新令牌:
+如果用户访问的时候,客户端的"访问令牌"已经过期,则需要使用"更新令牌"申请一个新的
+访问令牌.
+
+客户端发出更新令牌的HTTP请求,包含以下参数:
+granttype	表示使用的授权模式,此处的值固定为"refreshtoken",必选项.
+refresh_token	表示早前收到的更新令牌,必选项.
+scope		表示申请的授权范围,不可以超出上一次申请的范围,如果省略该参数,
+		则表示与上一次一致.
+
+例子:
+POST /token HTTP/1.1
+Host: server.example.com
+Authorization: Basic czZCaGRSa3F0MzpnWDFmQmF0M2JW
+Content-Type: application/x-www-form-urlencoded
+grant_type=refresh_token&refresh_token=tGzv3JOkF0XG5Qx2TlKWIA
 ==============================================================================
 ==============================================================================
