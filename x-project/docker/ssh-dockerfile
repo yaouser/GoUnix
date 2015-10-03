@@ -1,0 +1,65 @@
+==============================================================================
+
+构建ssh服务镜像所需的文件:
+
+Dockerfile  run.sh  authorized_keys 
+
+Dockerfile文件用于构建镜像.
+run.sh是启动SSH服务的脚本文件.
+authorized_keys是包含需要远程登录的用户的公玥.
+
+---------------------------------------------------------
+
+##run.sh##
+
+#!/bin/bash
+/usr/sbin/sshd -D
+
+-----------------------------------------
+
+##authorized_keys##
+
+生成公玥的命令
+ssh-keygen -t rsa
+cat ~/.ssh/id-rsa.pub > authorized_keys
+
+---------------------------------------------
+
+##Dockerfile##
+
+#使用的基础镜像
+FROM ubuntu:14.04
+#添加作者信息
+MAINTAINER user
+#安装SSH服务
+RUN apt-get install -y openssh-server
+RUN mkdir -p /var/run/sshd
+RUN mkdir -p /root/.ssh
+#修改登录限制
+RUN sed -ri 's/^PermitRootLogin\s+.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
+#添加认证文件和启动脚本
+ADD authorized_keys /root/.ssh/authorized_keys
+RUN echo "#/bin/bash" > /root/run.sh
+RUN echo "/usr/sbin/sshd -D" >> /root/run.sh
+RUN chmod u+x /root/run.sh
+#导出端口
+EXPOSE 22
+#设置默认的启动命令
+CMD ["/root/run.sh"]
+
+---------------------------------
+
+创建镜像
+docker build -t sshv1 .
+docker build .
+docker build -t sshv1 - < Dockerfile
+
+查看生成的镜像
+docker images
+
+启动镜像
+docer run -d -p 2022:22 sshv1 /root/run.sh
+
+==============================================================================
+==============================================================================
