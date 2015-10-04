@@ -49,7 +49,7 @@ RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
 #添加认证文件和启动脚本
 ADD authorized_keys /root/.ssh/authorized_keys
 ADD run.sh /run.sh
-RUN chmod 775 /root/run.sh
+RUN chmod 775 /run.sh  #chmod u+x /run.sh
 #导出端口
 EXPOSE 22
 #设置默认的启动命令
@@ -60,6 +60,7 @@ CMD ["/run.sh"]
 创建镜像
 docker build -t sshv1 .
 docker build .
+下面这条命令在这里不会正确,只适用于有Dockerfile一个文件的时候可以.
 docker build -t sshv1 - < Dockerfile
 
 查看生成的镜像
