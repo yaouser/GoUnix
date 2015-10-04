@@ -30,23 +30,30 @@ cat ~/.ssh/id-rsa.pub > authorized_keys
 #使用的基础镜像
 FROM ubuntu:14.04
 #添加作者信息
-MAINTAINER user
+MAINTAINER Yaouser
+#替换镜像源并更新
+RUN echo "deb http://mirrors.163.com/ubuntu/ trusty main restricted universe mu$
+RUN echo "deb http://mirrors.163.com/ubuntu/ trusty-security main restricted un$
+RUN echo "deb http://mirrors.163.com/ubuntu/ trusty-updates main restricted uni$
+RUN echo "deb http://mirrors.163.com/ubuntu/ trusty-proposed main restricted un$
+RUN echo "deb http://mirrors.163.com/ubuntu/ trusty-backports main restricted u$
+RUN apt-get update
 #安装SSH服务
 RUN apt-get install -y openssh-server
 RUN mkdir -p /var/run/sshd
 RUN mkdir -p /root/.ssh
-#修改登录限制
+#修改SSH登录限制
+RUN sed -ri 's/session    required     pam_loginuid.so/#session    required    $
 RUN sed -ri 's/^PermitRootLogin\s+.*/PermitRootLogin yes/' /etc/ssh/sshd_config
 RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
 #添加认证文件和启动脚本
 ADD authorized_keys /root/.ssh/authorized_keys
-RUN echo "#/bin/bash" > /root/run.sh
-RUN echo "/usr/sbin/sshd -D" >> /root/run.sh
-RUN chmod u+x /root/run.sh
+ADD run.sh /run.sh
+RUN chmod 775 /root/run.sh
 #导出端口
 EXPOSE 22
 #设置默认的启动命令
-CMD ["/root/run.sh"]
+CMD ["/run.sh"]
 
 ---------------------------------
 
@@ -59,7 +66,13 @@ docker build -t sshv1 - < Dockerfile
 docker images
 
 启动镜像
-docer run -d -p 2022:22 sshv1 /root/run.sh
+docer run -d -p 2022:22 sshv1 /run.sh
+
+使用SSH进行无密码登录容器
+ssh root@localhost -p 2022 
+
+我们可以以生成的SSH镜像为基础来构建新的镜像,如果使用Dockerfile的话,只要把SSH的
+Dockerfile加进去就可以了.
 
 ==============================================================================
 ==============================================================================
