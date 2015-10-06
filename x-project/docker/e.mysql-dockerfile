@@ -1,0 +1,63 @@
+==============================================================================
+
+##Dockerfile##
+
+FROM centos
+MAINTAINER Yaouser
+
+WORKDIR /root/
+
+RUN yum -y update; yum clean all
+RUN yum -y install wget; yum clean all
+RUN wget http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
+RUN rpm -ivh /root/mysql-community-release-el7-5.noarch.rpm
+#必须要导入新仓库的密玥,否则安装mysql无法正常进行.
+RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-mysql
+
+RUN yum -y install mysql-community-server; yum clean all
+RUN mysql_install_db --user=mysql
+ENV MYSQL_USER test
+ENV MYSQL_PASS mypassword
+#让容器支持中文,centos容器默认是不支持中文的.
+ENV LC_ALL en_US.UTF-8
+ADD build_table.sh /root/build_table.sh
+RUN chmod u+x /root/build_table.sh
+RUN /root/build_table.sh
+EXPOSE 3306
+ADD run.sh /root/run.sh
+RUN chmod u+x /root/run.sh
+CMD [/root/run.sh]
+
+##Dockerfile##
+
+yum clean all是为了删除掉下载的缓存文件,防止制作的镜像过大.
+
+解决mysql安装时,提示没有安装KEY(安装官方仓库软件不会有这样的情况)
+1 rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-mysql
+2 yum install mysql-community-server --nogpgcheck
+
+------------------------------------------------------
+
+运行mysql数据库
+
+##run.sh##
+
+#!/bin/bash
+mysqld_safe
+
+-------------------------------
+
+创建数据库表
+
+##build_table.sh##
+
+#!/bin/bash
+mysqld_safe &
+sleep 3
+mysql -e "GRANT ALL PRIVILEGES ON *.* TO '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASS' WITH GRANT OPTION;"
+mysql -e "create database scores"
+mysql -e "create table scores.name_score(name char(20) not null,score int not null) DEFAULT CHARSET=utf8"
+mysql -e "insert into scores.name_score values ('李明',80),('张军',90),('王小二',95)"
+
+==============================================================================
+==============================================================================
