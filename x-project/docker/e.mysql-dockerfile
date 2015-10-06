@@ -59,5 +59,11 @@ mysql -e "create database scores"
 mysql -e "create table scores.name_score(name char(20) not null,score int not null) DEFAULT CHARSET=utf8"
 mysql -e "insert into scores.name_score values ('李明',80),('张军',90),('王小二',95)"
 
+##build_table.sh##
+
+注意:
+在建立一个大表时,可以将建表语句抽象出来形成一个文件create.sql,之后可以执行语句
+mysql -e "source create.sql".
+
 ==============================================================================
 ==============================================================================
