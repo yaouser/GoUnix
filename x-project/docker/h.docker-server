@@ -1,0 +1,83 @@
+==============================================================================
+
+Docker后台监听接口
+
+Docker是由Docker后台和客户端组成的,而在默认配置下,Docker后台只接受来自本机的
+root用户的请求.事实上,Docker后台默认监听的是unix:///var/run/docker.sock套接字文
+件,该文件位于/var/run/目录下,如果想改变Docker后台的监听端口,甚至让其它主机也能
+够访问该后台服务,可以通过-H参数设置.
+
+通过-H参胡,可以让Docker后台监听指定的IP和端口.
+-H接受IP和端口绑定的格式为: tcp://[host][:port] 或 unix://path
+
+Docker后台同时接受多个端口的绑定:
+docker -H tcp://127.0.0.1:2376 -H unix:///var/run/docker.sock -d &
+
+注意:在改变Docker后台监听的端口需要先停止Docker后台,如
+service docker stop 或 systemctl stop docker.service
+
+除了使用命令行启动Docker后台外,一种更为持久化和自动化的方法是修改Docker后台的
+启动脚.debian系统中为/etc/default/docker.如,
+DOCKER_OPTS="-H 0.0.0.0:2376 -H unix:///var/run/docker.sock"
+
+-------------------------------------------------------------
+
+远程Docker-server的API测试:
+
+停止Docker-server后台
+systemctl stop docker.service
+
+以监听本地端口为2376的TCP协议的方式启动Docker-server.
+docker -H tcp://127.0.0.1:2376 -d &
+
+使用curl工具来测试
+curl -X GET http://localhost:2376/version
+curl -X GET http://localhost:2376/info
+
+-----------------------------------------------
+
+Docker的容器和镜像相关的API
+
+
+容器相关的API都在/containers/路径下面,镜像相关的API都在/images/路径下面.
+
+
+-------------------------------容器相关的API----------------------------------
+功能			方法				参数
+------------------------------------------------------------------------------
+列出容器		GET /container/json		all limit等
+创建容器		PSOT /container/create		name JSON等
+查看信息		GET /container/(id)/json	
+正在运行的进程		GET /container/(id)/top		
+获取日志		GET /container/(id)/logs	follow stdout stderr等
+查看文件变更		GET /container/(id)/changes	
+导出			GET /container/(id)/export
+启动			POST /container/(id)/start	
+停止			POST /container/(id)/stop	t
+重启			POST /container/(id)/restart	t
+杀死			POST /container/(id)/kill	signal
+附加终端		POST /container/(id)/attach	logs stin stdout等
+暂停			POST /container/(id)/pause	
+重新运行暂停的容器	POST /container/(id)/unpause	
+等待容器停止		POST /container/(id)/wait	
+删除			DELETE /container/(id)		v force
+从容器复制目录/文件	POST /container/(id)/copy	
+------------------------------------------------------------------------------
+
+
+-------------------------------镜像相关API------------------------------------
+功能			方法				参数
+------------------------------------------------------------------------------
+列出镜像		GET /images/json		all filters
+创建(下载创建)镜像	POST /images/create		formImage repo tag等
+查看镜像信息		GET /images/(name)json		
+获取镜像历史		GET /images/(name)/history	
+推送镜像到仓库		POST /images/(name)/push	
+给镜像贴标签		POST /images/(name)/tag		repo force tag
+删除镜像		DELETE /images/(name)		force
+搜索镜像		GET /images/search		Term
+------------------------------------------------------------------------------
+
+
+==============================================================================
+==============================================================================
