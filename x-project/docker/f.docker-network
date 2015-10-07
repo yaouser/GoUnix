@@ -1,0 +1,270 @@
+==============================================================================
+
+容器网络
+
+---------------------------------------------------------------
+
+容器运行的四种网络模式,通过--net参数来指定容器运行的网络模式.
+
+
+--net=bridge
+
+这是容器运行的默认网络模式.通过网桥来设置容器网络时,默认会连接到docker0网桥上.
+此外,也可以通过全局配置文件里DOCKER_OPTS选项的-b参数来指定默认网桥.
+假如我们希望容器连接到一个名为docker1网桥上,只要在/etc/default/docker文件的的
+选项DOCKER_OPTS选项里添加-b=docker1,然后重启docker服务即可.如果docker1是一个非
+法网桥,docker服务重启将失效.配置为:DOCKER_OPTS="-b=docker1".
+
+--net=host
+
+此网络模式的容器将不会拥有自己独立的网络空间,他所处的网络环境不再是虚拟化了.相
+反,它会共享主机的网络环境,包括IP地址,网卡设备,主机名,网络配置等一切与网络有关
+的资源.但容器在进程,文件系统等虚拟化方面并不会收到影响.
+虽然容器拥有和主机完全一样的网络接口访问能力,但他并不能对主机的网络配置栈进行
+修改.
+
+--net=container:NAME_or_ID
+
+这个选项让容器共享指定的已经创建好的容器的网络环境.两个容器将共享IP地址及端口
+号等网络资源,并且这两个容器的进程可以通过回环网络进行访问.
+
+例子:
+docker run -i -t --name=theOne ubuntu
+docker run -i -t --name=theTwo --net=container:167b6fc7f62c ubuntu
+这样theTwo容器就共用了theOne容器的网络环境了,包括它的主机名.
+
+--net=none
+
+以这个选项运行的容器将不会被配置网络环境,也就是说,他将不具备任何网络访问能力.
+对于已经使用该配置运行的容器,我们仍然可以手动为他配置一个网络环境.但我们没有比
+要这么做,因为Docker引擎已经为我们做好了.
+
+--------------------------------------------------------
+
+手动配置容器的网络环境(手动为运行在--net=none参数下的容器配置一个虚拟网络环境)
+
+1 在一个终端中用--net=none选项运行一个无网络环境的容器
+docker run -i -t --rm --net=none ubuntu /bin/bash
+root@63f36fc01b5f:/#
+
+2 启动新的终端,使用docker inspect命令查看刚才创建的容器在主机的进程ID:
+docker inspect -f '{{.State.Pid}}' 63f36fc01b5f
+2778
+
+3 为容器进程创建独立的网络命名空间.
+mkdir -p /var/run/netns
+ln -s /proc/$pid/ns/net /var/run/netns/$pid
+
+4 查看默认网桥的IP及子网掩码.
+ip addr show docker0
+
+5 创建虚拟网络接口设备A,并未A创建一个映射端设备B
+ip link add A type veth peer name B
+
+6 将设备A接入网桥docker0
+brctl addif docker0 A
+
+7 启动网络设备A
+ip link set A up
+
+8 将B设备放到刚创建的独立的网络空间中去
+ip link set B netns $pid
+
+9 在虚拟网络空间中将设备B重命名为更为通用的名称eth0
+ip netns exec $pid ip link set dev B name eth0
+
+10 为eth0设置MAC地址
+ip netns exec $pid ip link set eth0 address 12:34:56:78:9a:bc
+
+11 启动eth0
+ip netns exec $pid ip link set eth0 up
+
+12 为eth0配置网络IP地址及子网掩码
+ip netns exec $pid ip addr add 172.17.42.99/16 dev eth0
+
+13 为主机设置路由地址
+ip netns exec $ip route add default via 172.17.42.1
+
+------------------------------------------------------------
+
+主机名配置和DNS配置
+
+Docker容器的主机名和DNS等网络配置并不是在镜像中修改的,而是在启动的那一刻通过覆
+写/etc/hostname /etc/hosts /etc/resolv.conf这三个文件来达到的.
+
+在容器中使用mount命令可以发现,hostname hosts和resolv.conf这3个文件其实是挂载在
+主机上的文件,每一个容器对应着一份副本,通过uuid进行隔离.
+
+我们不应该直接修改这些文件来达到目标,Docker会为我们自动配置好这些文件,以满足当
+前网络的需求.如果需要修改,需要在首次运行容器时通过命令进行配置.
+
+
+docker run -h myhostname -i -t ubuntu
+-h选项将直接修改/etc/hostname文件,同时也会修改/etc/hosts主机的IP对应的主机名.
+容器的主机名会显示在容器内/bin/bash终端的计算机区域(终端@符号后的区域),而对主
+机和其他容器是不可见的.
+
+
+--dns=IP_ADDRRESS可以为新启动的容器配置一个或者多个域名服务器,这个参数会修改文
+件/etc/resolv.conf,容器中的进程需要通过主机名或域名来访问时,如果该域名在文件中
+/etc/hosts不能被解析,就会从文件/etc/resolv.conf中读取DNS服务器的IP地址,然后在
+端口53上向DNS服务器请求解析域名到IP地址.
+
+--dns-search=DOMAIN用来配置DNS查询的后置域.举个例子,如果你设置DNS服务器查询的
+music的IP地址,还会同时查询music.baidu.com域名的IP地址.如果不想使用这个设置,将
+DOMAIN置为空即可.这个配置同样会修改/etc/resolv.conf文件.
+
+容器支持在容器中直接修改/etc/hostname /etc/hosts和/etc/resolv.conf这3个文件.不
+过对文件的修改也仅在本次容器运行期间有效,容器退出后修改也随之丢失.通过容器的命
+令docker commit将容器运行的环境保存成镜像时,这3个文件的修改也会丢失而不会写入
+到容器镜像中去.
+
+------------------------------------
+
+容器互联配置及原理
+
+
+容器与容器之间能否进行通信,主要由下面两个因素锁决定.
+
+1 需要通信的容器的网络接口是否处于同一网络拓扑结构中.
+  默认情况下,Docker会将容器接入到名为docker0的网桥上.网桥会处理容器之间的数据
+  包交换.
+2 iptables配置是否允许两个容器之间创建连接.
+  当我们启动容器时,Docker引擎会在主机iptables中创建一条转发链.如果我们配置了选
+  项--icc=true,这条转发链就使用ACCEPT策略进行配置.如果--icc设置成了false,就使
+  用DROP策略进行配置.将--icc参数设置成true还是false取决于我们是否依赖iptables
+  来保护容器免受端口刺探或被其它无关容器访问的危险.
+
+-icc参数通过全局配置文件/etc/default/docker中的DOCKER_OPTS选项进行配置,如
+DOCKER_OPTS="--icc=false"或者DOCKER_OPTS="--icc=true".
+通过设置全局配置中DOKCER_OPTS选项中的--iptables为false,启动容器将不会修改主机
+的iptables.一般情况下,我们不需要这么做,否则容器网络将不能正常工作.
+
+----------------------------------------
+
+容器内访配置
+
+
+默认情况下,容器能与外部创建连接,但外部网络不能主动连接容器.如果希望容器能够接
+受来自外部的连接,可以在使用docker run命令运行容器时指定一个特殊参数,即-p或-P.
+-p和-P都是用来向外部开放内防的端口的.
+
+使用-P或者--publish-all=true|false
+
+有了这个参数,创建容器镜像的Dockerfile文件中EXPOSE命令所指定的端口都将变成可访
+问的.这个命令会将EXPOSE的端口列表随机映射到主机49153-65535的端口范围.如果想知
+道具体是哪个端口,还需要额外的命令操作.
+
+使用-p SPEC或--publish=SPEC(这个方法更方便)
+
+这个参数不仅允许我们添加可内访的端口,还可以指定该端口的类型(TCP UDP)及其在主机
+上映射的具体端口.
+
+无论使用哪种方法,最终都需要通过修改主机上iptables的nat表来完成.
+我们可以修改Docker全局配置文件/etc/default/docker的DOCKER_OPTS选项,通过配置参
+数--ip=IP_ADDRESS,达到指定一个或多个目标IP地址的作用.
+
+----------------------------------------------------------
+
+容器外访配置
+
+是否允许容器访问外部网络,主要受主机的ip_forward系统参数影响.默认情况下,这个参
+数ip_forward设置成1,如果他被设置成0,通过echo 1 > /proc/sys/net/ipv4/ip_forward
+打开.
+
+如果我们将Docker服务的参数--ip-forward设成true,那么Docker服务每次启动时,都会将
+/proc/sys/net/ipv4/ip_forward设成1.如果是false,则启动服务时不会对主机ip_forward
+做任何修改.大多数情况下,我们可以打开这个开关,以确保与外部网络及其他容器间正常
+通信.
+
+每一个容器发往外部的源IP地址最终都会被修改为主机的IP地址.这得益于iptables中的
+MASQUERADE规则.
+
+-----------------------------------
+
+创建点对点连接
+
+默认情况下,Docker会将所有的容器接入到虚拟网桥docker0所组织的虚拟子网中.但是有
+时侯我么仅仅需要两个容器之间能够直接通信,而不想让它们混入其它复杂的网络中.
+
+解决:
+
+我们创建一对veth设备时,将veth的两端网络接口设备分别放入两个容器中,并且就像配置
+普通网络接口那样配置它们.
+
+创建过程:
+
+1 在终端1中,创建无网络容器1.
+docker run -rm -i -t --net=none ubuntu
+
+2 在终端2中,创建无网络容器2.
+docker run -rm -i -t --net=none ubuntu
+
+3 在终端3中,查看刚才创建的两个容器的进程ID.
+docker inspect -f "{{.State.Pid}}' containerid1
+4207
+docker inspect -f "{{.State.Pid}}' containerid2
+4241
+
+4 为两个容器在它们独立进程空间里创建虚拟的网络空间.
+mkdir -p /var/run/netns
+ln -s /proc/4207/ns/net /var/run/netns/4207
+ln -s /proc/4241/ns/net /var/run/netns/4241
+
+5 创建一对veth,两端命名分别为A B
+ip link add A type veth peer name B
+
+6 将A放入容器1的网络空间.
+ip link set A netns 4207
+
+7 在容器1的网络空间中设置设备A的IP地址为10.1.1.1/32
+ip netns exec 4207 ip addr add 10.1.1.1/32 dev A
+
+8 在容器1的网络空间中启动设备A
+ip netns exec 4207 ip link set A up
+
+9 在容器1的网络空间中设置设备A的路由地址为10.1.1.2/32
+ip netns exec 4207 ip route add 10.1.1.2/32 dev A
+
+10 在容器2中的操作(同容器1)
+ip link set B netns 4241
+ip netns exec 4241 ip addr add 10.1.1.2/32 dev B
+ip netns exec 4241 ip link set B up
+ip netns exec 4241 ip route add 10.1.1.1/32 dev B
+
+--------------------------------------------------
+
+配置网桥
+
+docker0网桥的IP地址,子网掩码,MTU值及连接设备IP地址分配范围是由Docker服务配置的
+可以通过全局配置/etc/default/docker文件中的DOCKER_OPTS选项来修改这些值.
+
+--bip=CIDR
+
+为默认网桥指定一个子网掩码和IP地址.需要使用标准CIDR格式,如192.168.1.5/24
+
+--fixed-cidr=CIDR
+
+设定docker0网桥下的子网IP分配范围.需要使用标准CIDR格式,如172.167.1.0/28
+
+--mtu=BYTES
+
+指定网桥的最大传输单元长度.如果不指定,则使用默认值1500字节.
+
+修改/etc/default/docker文件之后,需要重启Docker服务配置方可生效.
+
+
+构建自己的网桥
+
+service docker stop
+ip link set dev docker0 down
+brctl delbr docker0
+brctl addbr bridge0
+ip addr add 192.168.5.1/24 dev bridge0
+ip link set dev bridge0 up
+ip addr show bridge0
+echo 'DOCKER_OPTS="-b=bridge0"' >> /etc/default/docker
+service docker restart
+
+==============================================================================
+==============================================================================
