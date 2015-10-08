@@ -80,4 +80,121 @@ Docker的容器和镜像相关的API
 
 
 ==============================================================================
+
+通过curl命令来访问API的操作相对简单,根据API的规范性,会按照方法,用例请求,用例返
+回,请求参数,返回的状态码以及curl操作这个标准模板的形式来逐个说明API.
+
+这些用例实际上是Docker官方的API文档.
+
+----------------------
+
+方法:
+用例请求:
+用例返回:
+请求参数:
+返回的状态码:
+curl操作:
+
+----------------------
+
+1 列出容器
+
+
+方法: GET  /container/json
+
+用例请求: GET /containers/json?all=1&before=8dfafdbc3a40&size=1 HTTP/1.1
+
+用例返回: 
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+[
+     {
+             "Id": "8dfafdbc3a40",
+             "Names":["/boring_feynman"],
+             "Image": "ubuntu:latest",
+             "Command": "echo 1",
+             "Created": 1367854155,
+             "Status": "Exit 0",
+             "Ports": [{"PrivatePort": 2222, "PublicPort": 3333, "Type": "tcp"}],
+             "Labels": {
+                     "com.example.vendor": "Acme",
+                     "com.example.license": "GPL",
+                     "com.example.version": "1.0"
+             },
+             "SizeRw": 12288,
+             "SizeRootFs": 0
+     },
+     {
+             "Id": "9cd87474be90",
+             "Names":["/coolName"],
+             "Image": "ubuntu:latest",
+             "Command": "echo 222222",
+             "Created": 1367854155,
+             "Status": "Exit 0",
+             "Ports": [],
+             "Labels": {},
+             "SizeRw": 12288,
+             "SizeRootFs": 0
+     },
+     {
+             "Id": "3176a2479c92",
+             "Names":["/sleepy_dog"],
+             "Image": "ubuntu:latest",
+             "Command": "echo 3333333333333333",
+             "Created": 1367854154,
+             "Status": "Exit 0",
+             "Ports":[],
+             "Labels": {},
+             "SizeRw":12288,
+             "SizeRootFs":0
+     },
+     {
+             "Id": "4cb07b47f9fb",
+             "Names":["/running_cat"],
+             "Image": "ubuntu:latest",
+             "Command": "echo 444444444444444444444444444444444",
+             "Created": 1367854152,
+             "Status": "Exit 0",
+             "Ports": [],
+             "Labels": {},
+             "SizeRw": 12288,
+             "SizeRootFs": 0
+     }
+]
+
+请求参数:
+
+1 all:其值为1/True/true或0/False/false,表示是否显示所有容器.其值若为真,则会显
+      示所有容器,其中包含已经停止的容器,否则只显示正在运行的容器.其默认值为0.
+
+2 limit:仅显示最新建立的几个容器.
+
+3 since:显示比指定Id的容器更晚创建的容器.
+
+4 before:显示比指定Id的容器更早创建的容器.
+
+5 size:其值为1/True/true或者0/False/false,表示是否显示容器的大小.
+
+6 filters:使用JSON格式的条件过滤容器,例如退出码(exited=<int>),status运行状态
+          (status=restarting|running|paused|exited).
+
+返回的状态码:
+
+ 200:返回正常.
+
+ 400:参数错误.
+
+ 500:服务器错误.
+
+curl操作:
+
+ curl -X GET http://localhost:2376/containers/json?all=1
+
+----------------------------------------------------------
+
+其它的API和这个用例差不多,如有需要可到官方文档处进行检索.
+
+==============================================================================
 ==============================================================================
