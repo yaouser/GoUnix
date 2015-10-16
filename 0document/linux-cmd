@@ -292,4 +292,83 @@ moc包中的mocp提供了一个ncureses界面的音乐播放软件.
 lame进行音轨转换,sox播放转换过来的音频文件.
 lame --decode music.mp3 - | play -
 ==============================================================================
+虚拟化
+======
+
+kvm是内核虚拟化,提供CPU硬件支持的虚拟化技术.
+kvm是linux的一个模块,可以用modprobe去加载kvm模块.
+仅有kvm模块是不够的,用户无法直接控制内核模块做事情,必须有一个用户空间的工具.
+这个工具就是QEMU.
+
+QEMU是虚拟化管理工具并且也可以提供全套虚拟解决方案,它可以虚拟不同的CPU.
+
+QEMU可以不依赖kvm模块存在,但是虚拟的速度慢,如果QEMU使用内核kvm模块,可以虚拟出
+速度比较快的虚拟机,但是kvm需要硬件CPU虚拟化指令的支持.
+
+QEMU和kvm之间的关系是二者相互独立的.
+
+-----------------------------------------------------------------------------
+
+1)创建磁盘镜像
+qemu-img create debian.img 2G
+或者(假如想使用QEMU自己的"Copy On Write"镜像格式qcow2磁盘镜像格式)
+qemu-img create -f qcow2 debian.cow 2G
+
+2)准备一个Debian系统启动镜像.
+debian-i386.iso
+
+3)启动镜像
+qemu -hda debian.img -cdrom debian-i386.iso -boot d -m 256
+
+4)像通常那样安装系统.
+
+5)安装完毕之后,系统可以被启动.
+qemu -hda debian.img -m 256
+
+6)备份磁盘镜像(这个磁盘镜像debian.img是一个松散的文件).
+tar -c --sparse -f backup.tar debian.img (--sparse高效处理离散文件)
+通过tar xf解压,这个松散的文件被恢复并能立刻被加载启动.
+
+可以将debian.img转换成QEMU自己的Copy On Write镜像,不会压缩文件空间,但是仍可
+立即运行.
+qemu-img convert -c debian.img -O qcow debian_recompressed.img
+
+可能镜像过大,可以在启动的客户系统中删除残余文件.
+dd if=/dev/zero of=/tmp/junk;sync;rm /tmp/junk
+
+--------------------------------------------------
+
+qemu参数简介
+
+-L dir
+指向BIOS和VGA BIOS所在目录
+
+-hda/-hdb/-hdc/-hdd "file"
+使用"file"作为硬盘0/1/2/3镜像
+
+-cdrom "file"
+使用"file"作为光盘镜像(文件应该是ISO类型)
+
+-fda/-fdb "file"
+使用"file"作为磁盘0/1镜像
+
+-boot [a|b|c]
+使用磁盘<a>,光盘<d>,或者硬盘<c>启动
+
+-m 256
+使用256Mb的内存
+
+-usb
+允许使用usb设备
+
+-net nic
+创建一块新的网卡
+
+-soundhw c1
+使用声卡设备
+
+-soundhw all
+使用全部声卡
+
+==============================================================================
 ==============================================================================
