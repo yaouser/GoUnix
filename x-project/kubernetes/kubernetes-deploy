@@ -85,19 +85,185 @@ systemctl enable iptables.service
 
 在192.168.1.84这台主机上安装Etcd,用于存储kubernetes的动态信息.
 
+1)获取和安装Etcd.
+wget https://github.com/coreos/etcd/releases/download/v2.2.1/etcd-v2.2.1-linux-amd64.tar.gz
+tar -zxvf etcd-v2.2.1-linux-amd64.tar.gz
+cd etcd-v2.2.1-linux-amd64/
+cp etcd* /usr/bin/
+/bin/etcd -version
+>etcd Version: 2.2.1
+>Git SHA: 75f8282
+>Go Version: go1.5.1
+>Go OS/Arch: linux/amd64
+
+2)使用systemctl启动Etcd服务.
+
+sudo for SERVICES in etcd; do 
+    systemctl restart $SERVICES
+    systemctl enable $SERVICES
+    systemctl status $SERVICES 
+done
 
 
 --------------------------配置主控节点(192.168.1.83)--------------------------
 
 
+kubernetes安装有三种方式:(1)yum源(2)二进制(3)编译源代码(使用2)
+
+wget https://github.com/kubernetes/kubernetes/releases/download/v1.0.6/kubernetes.tar.gz
+tar -zxvf kubernetes.tar.gz
+tar -zxvf kubernetes/server/kubernetes-server-linux-amd64.tar.gz
+cp kubernetes/server/bin/kube* /usr/bin
+
+
+
+主控节点包含apiserer,调度器和控制器这3个组件,相关配置也涉及这三块.
+
+1)/etc/kubernetes/config文件的配置(包含etcd的地址和端口配置 日志).
+
+#配置ETCD服务地址和端口
+KUBE_ETCD_SERVERS="--etcd-servers=http://master:4001"
+#日志设置
+KUBE_LOGTOSTDERR="--logtostderr=true"
+#日志级别设置
+KUBE_LOG_LEVEL="--v=0"
+#是否运行运行特殊的Docker容器
+KUBE_ALLOW_PRIV="--allow_privileged=false"
+
+2)/etc/kubernetes/apiserver文件的配置.
+
+#Matser监听的IP，当前设置表示所有地址
+KUBE_API_ADDRESS="--address=0.0.0.0"
+#监听地址的端口
+KUBE_API_PORT="--port=8080"
+#主节点的地址，主要为replication controller和scheduler可以顺利找到apiserver
+KUBE_MASTER="--master=http://master:8080"
+#从节点上kubelet进程监听的端口号
+KUBELET_PORT="--kubelet_port=10250"
+#service可以分配的IP地址范围
+KUBE_SERVICE_ADDRESSES="--service-cluster-ip-range=10.254.0.0/16"
+#一些自定义配置
+KUBE_API_ARGS=""
+
+
+3)/etc/kubernetes/controller-manager文件的配置.
+
+添加自定义参数(简单可不配置)
+
+4)/etc/kubernetew/scheduler文件的配置.
+
+添加自定义参数(简单可不配置)
+
+5)使用systemctl启动kubernetes的三项服务并加入开机启动项中.
+
+kube-apiserver kube-controller-manager kube-scheduler
+
+sudo for SERVICES in kube-apiserver kube-controller-manager kube-scheduler; do 
+    systemctl restart $SERVICES
+    systemctl enable $SERVICES
+    systemctl status $SERVICES 
+done
 
 -------------------------配置从属节点(192.168.1.85/86)------------------------
 
+
+kubernetes安装有三种方式:(1)yum源(2)二进制(3)编译源代码(使用2)
+
+wget https://github.com/kubernetes/kubernetes/releases/download/v1.0.6/kubernet$
+tar -zxvf kubernetes.tar.gz
+tar -zxvf kubernetes/server/kubernetes-server-linux-amd64.tar.gz
+cp kubernetes/server/bin/{kubelet,kube-proxy} /usr/bin
+
+
+
+从属节点包含kubelet和服务代理这两个组件,相关配置也涉及到这两块.
+
+1)/etc/sysconfig/docker文件的配置,以便后续提供远程API维护.
+
+2)修改从属节点的防火墙,以确保主控节点能够连接到他.
+
+如:iptables -I INPUT -s 192.168.1.83 -p tcp --dport 10250 -j ACCEPT
+
+3)/etc/kubernetes/config文件的配置(包含etcd的地址和端口配置 日志).
+
+#基本和Master的config文件一致
+KUBE_ETCD_SERVERS="--etcd-servers=http://master:4001"
+KUBE_LOGTOSTDERR="--logtostderr=true"
+KUBE_LOG_LEVEL="--v=0"
+KUBE_ALLOW_PRIV="--allow_privileged=false"
+#Master的config文件中没有此配置，但是子节点要有，如果没有的话kube-proxy会找不到主节点而一致报错
+KUBE_MASTER="--master=http://master:8080"
+
+4)/etc/kubernetes/kublet文件的配置.
+
+#kubelet监听的地址，当前设置表示全部
+KUBELET_ADDRESS="--address=0.0.0.0"
+#kubelet监听的端口号
+KUBELET_PORT="--port=10250"
+#设置在Master节点显示的主机名
+KUBELET_HOSTNAME="--hostname_override=minion1"
+#Master节点的apiserver地址
+KUBELET_API_SERVER="--api_servers=http://master:8080"
+#自定义设置
+KUBELET_ARGS=""
+
+5)/etc/kubernetes/proxy文件的配置.
+
+添加自定义参数(简单可不配置)
+
+6)使用systemctl启动kubernetes两项服务及docker,并加入开机启动项中.
+
+kubelet kube-proxy docker
+
+sudo for SERVICES in kube-proxy kubelet docker; do 
+    systemctl restart $SERVICES
+    systemctl enable $SERVICES
+    systemctl status $SERVICES 
+done
 
 
 ------------------------------------------------------------------------------
 ===================================验证安装===================================
 ------------------------------------------------------------------------------
+
+
+以下操作均在Master节点上进行:
+
+#启动一个pod,其中包括一个nginx容器,这个pod有两份副本,开放的端口为80
+kubectl run my-nginx --image=nginx --replicas=2 --port=80
+
+#查看当前运行的pod
+kubectl get pods
+
+#删除pod
+kubectl delete pod ${podName}
+
+由于设置了两份副本,所以删除pod的时候,k8s会迅速起另外一个一模一样的pod以保持副
+本数量为2不变.要彻底删除pod，只能删除创建它的replication controller
+
+#查看replication controller
+kubectl get rc
+
+#删除replication controller
+kubectl delete rc ${rcName}
+
+删除rc之后，其创建的pod会一并删除
+
+-----------------------------------
+
+kubectl get minions	#查看从属主机
+
+kubectl get pods	#查看Pod清单
+
+kubectl get services	#查看service清单
+
+kubectl get rc		#查看备份控制器清单
+
+#删除所有Pod
+
+for i in kubectl get pod | tail -n +2 | awk '{print $1}'; do
+	kubectl delete pod $1;
+done;
 
 
 ==============================================================================
