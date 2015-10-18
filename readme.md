@@ -15,3 +15,6 @@ Go语言的命令行工具介绍,这个目录是fork于郝林的一个项目,由
 ##[SHELL应用](https://github.com/yaouser/Go-basic-code/tree/master/0document/SHELL-BASE)
 在linux的环境下，也许需要深入的了解一下系统的解释环境(shell)，这样我们才知道
 工作在什么样的环境。如果你想知道更加底层是怎么工作的，请找[kernel](https://www.kernel.org/)。它会告诉你的。
+##[X-Project](https://github.com/yaouser/GoUnix/tree/master/x-project)
+关于Go语言一些重量级应用的介绍和使用,如Docker Etcd Kubernetes .....
+##正在寻找工作,Please Email:yaozhenqian2015@gmail.com
