@@ -1,0 +1,162 @@
+==============================================================================
+
+etcd
+
+A highly-available key value store for shared configuration and service discovery
+(一个为共享配置和服务发现而设计的高性能键值存储系统)
+
+对于kubernetes来说,etcd是服务发现和存储集群状态及配置的后端.
+
+运行在集群上的应用程序容器能够向etcd读写数据.常见的例子是存储数据库连接信息,缓
+存设置,功能标志等等.
+
+----------------------------------
+
+向etcd中读写数据
+
+
+由于etcd使用HTTP-baseed API,可以使用客户端程序etcdctl工具和带有-L标志curl演示.
+
+写数据:
+$etcdctl set /message Hello
+Hello
+或者
+$curl -L -X PUT http://127.0.0.1:2379/v2/keys/message -d value="Hello"
+{"action":"set","node":{"key":"/message","value":"Hello","modifiedIndex":4,"createdIndex":4}}
+
+读数据:
+$etcdctl get /message
+Hello
+或者
+$curl -L http://127.0.0.1:2379/v2/keys/message
+{"action":"get","node":{"key":"/message","value":"Hello","modifiedIndex":4,"createdIndex":4}}
+
+删除数据:
+$etcdctl rm /message
+PrevNode.Value: Hello
+或者
+$curl -L -X DELETE http://127.0.0.1:2379/v2/keys/message
+{"action":"delete","node":{"key":"/message","modifiedIndex":12,"createdIndex":
+11},"prevNode":{"key":"/message","value":"Hello","modifiedIndex":11,
+"createdIndex":11}}
+
+---------------------------------
+
+在一个容器中读写
+
+
+在一个容器中向etcd读写,首先必须获得主机docker0接口上的IP地址.
+$ip address show
+172.17.42.1
+
+从etcd中读取数据
+$ curl -L http://172.17.42.1:2379/v2/keys/
+{"action":"get","node":{"key":"/","dir":true,"nodes":[{"key":"/coreos.com",
+"dir":true,"modifiedIndex":4,"createdIndex":4}]}}
+
+也可以通过编程获取docker0 IP:
+ETCD_ENDPOINT="$(ifconfig docker0 | awk '/\<inet\>/ { print $2}'):2379"
+
+-----------------------------------
+
+代理示例
+
+这里我们假设建立一个服务,这个服务是由在一个代理容器后面的一组容器组成.我们使用
+etcd发现那些创建一个目录的容器,让每个容器在一个目录中写一个键值,让代理监管整个
+目录.
+
+1)创建目录:
+
+$etcdctl set /foo-service/container1 localhost:1111
+localhost:1111
+或者
+$curl -L -X PUT http://127.0.0.1:2379/v2/keys/foo-service/container1 -d value="localhost:1111"
+{"action":"set","node":{"key":"/foo-service/container1",
+"value":"localhost:1111","modifiedIndex":15,"createdIndex":15},"prevNode":
+{"key":"/foo-service/container1","value":"localhost:1111",
+"modifiedIndex":14,"createdIndex":14}}
+
+读取目录foo-service
+$etcdctl ls /foo-service
+/foo-service/container1
+或者
+$curl -L http://127.0.0.1:2379/v2/keys/foo-service
+{"action":"get","node":{"key":"/foo-service","dir":true,"nodes":
+[{"key":"/foo-service/container1","value":"localhost:1111","modifiedIndex":15,
+"createdIndex":15}],"modifiedIndex":13,"createdIndex":13}}
+
+2)监控目录:
+
+$etcdctl watch --recursive /foo-service
+或者
+$curl -L http://127.0.0.1:2379/v2/keys/foo-service?wait=true\&recursive=true
+
+在另一个终端中
+$etcdctl set /foo-service/container2 localhost:2222
+localhost:2222
+或者
+$curl -L -X PUT http://127.0.0.1:2379/v2/keys/foo-service/container2 -d value="localhost:2222"
+{"action":"set","node":{"key":"/foo-service/container2","value":
+"localhost:2222","modifiedIndex":17,"createdIndex":17},"prevNode":
+{"key":"/foo-service/container2","value":"localhost:2222",
+"modifiedIndex":16,"createdIndex":16}}
+
+在第一个终端中可以观察到变化
+$etcdctl watch --recursive /foo-service
+[set] /foo-service/container2
+localhost:2222
+
+3)监控目录和触发执行
+
+$etcdctl exec-watch --recursive /foo-service -- sh -c 'echo "\"$ETCD_WATCH_KEY\" key was updated to \"$ETCD_WATCH_VALUE\" value by \"$ETCD_WATCH_ACTION\" action"'
+
+在另一个终端中,创建另一个新的容器
+$etcdctl set /foo-service/container3 localhost:2222
+localhost:2222
+
+在第一个终端中,能够得到键值变更的通知.
+"/foo-service/container3" key was updated to "localhost:2222" value by "set" action
+
+---------------------------------------
+
+测试和设置
+
+etcd可以被用作一个中心化的调度服务,给一个构建服务块提供TestAndSet功能.
+你必须首先提供一个新值作为一个前值,假如这个前值和目前的值匹配的话,操作就成功.
+注意:下面的这句是事先要存在key值Hello.
+$etcdctl set /message "Hi" --swap-with-value "Hello"
+Hi
+或者
+$curl -L -X PUT http://127.0.0.1:2379/v2/keys/message?prevValue=Hello -d value=Hi
+{"action":"compareAndSwap","node":{"key":"/message","value":"Hi",
+"modifiedIndex":23,"createdIndex":22},"prevNode":{"key":"/message","value":
+"Hello","modifiedIndex":22,"createdIndex":22}}
+
+----------------------------------------------
+
+TTL(生存时间值)
+
+TTL是Time To Live的缩写,该字段指定IP包被路由器丢弃之前允许通过的最大网段数量.
+TTL是IPv4包头的一个8bit字段.
+
+你能够为一个键值设置一个在若干秒到期的TTL.
+$etcdctl set /foo "Expiring Soon" --ttl 20
+Expiring Soon
+
+这个curl的响应将包含一个键值到期的绝对时间戳和一个直到时间戳的相对秒数.
+$curl -L -X PUT http://127.0.0.1:2379/v2/keys/foo?ttl=20 -d value=bar
+{"action":"set","node":{"key":"/foo","value":"bar","expiration":
+"2015-10-21T14:14:51.765144056Z","ttl":20,"modifiedIndex":25,
+"createdIndex":25},"prevNode":{"key":"/foo","value":"Expiring Soon",
+"expiration":"2015-10-21T14:14:40.187886374Z","ttl":9,"modifiedIndex":24,
+"createdIndex":24}}
+
+假如响应一个键值的时间已经到期了,将会得到一个100
+$etcdctl get /foo
+Error:  100: Key not found (/foo) [26]
+或者
+$curl -L http://127.0.0.1:2379/v2/keys/foo
+{"errorCode":100,"message":"Key not found","cause":"/foo","index":26}
+
+==============================================================================
+==============================================================================
