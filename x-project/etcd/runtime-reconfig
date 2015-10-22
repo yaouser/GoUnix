@@ -1,0 +1,66 @@
+==============================================================================
+
+
+更新一个成员
+
+
+假如想要更新一个成员的IP地址(peerURLs),首先,我们需要找到目标成员的ID.
+
+$etcdctl member list
+6e3bd23ae5f1eae0: name=node2 peerURLs=http://localhost:23802 clientURLs=http://127.0.0.1:23792
+924e2e83e93f2560: name=node3 peerURLs=http://localhost:23803 clientURLs=http://127.0.0.1:23793
+a8266ecf031671f3: name=node1 peerURLs=http://localhost:23801 clientURLs=http://127.0.0.1:23791
+
+在这个例子中更新a8266ecf031671f3成员ID改变peerURLs值为http://10.0.1.10:2380
+
+$etcdctl member update a8266ecf031671f3 http://10.0.1.10:2380
+Updated member with ID a8266ecf031671f3 in cluster
+
+
+-----------------------------------------------------
+
+
+移除一个成员
+
+
+我们想要移除的ID为a8266ecf031671f3
+
+$etcdctl member remove a8266ecf031671f3
+Removed member a8266ecf031671f3 from cluster
+
+他也能够安全的删除一个领导节点,但是在一个新的领导被选择出来之前这段时间,集群处
+与非活跃状态.这段时间内正常的进行选举和投票过程.
+
+
+-------------------------------------------------
+
+
+添加一个新的成员
+
+
+添加一个新的成员分两步:
+  1)通过成员API或者etcdctl member add命令来添加一个新的成员到集群中
+  2)使用新的集群配置来启动新的成员,包括更新成员的一个列表(exit mem + new mem).
+
+使用etcdctl来向集群添加标示名字和标记对等URLs的新成员:
+
+$etcdctl member add infra3 http://10.0.1.13:2380
+added member 9bf1b35fc7761a23 to cluster
+#添加后打印出来新成员相关的环境变量
+ETCD_NAME="infra3"
+ETCD_INITIAL_CLUSTER="infra0=http://10.0.1.10:2380,infra1=http://10.0.1.11:2380,infra2=http://10.0.1.12:2380,infra3=http://10.0.1.13:2380"
+ETCD_INITIAL_CLUSTER_STATE=existing
+
+现在启动通过相关的标志来给新的成员启动新的etcd进程:
+
+$export ETCD_NAME="infra3"
+$export ETCD_INITIAL_CLUSTER="infra0=http://10.0.1.10:2380,infra1=http://10.0.1.11:2380,infra2=http://10.0.1.12:2380,infra3=http://10.0.1.13:2380"
+$export ETCD_INITIAL_CLUSTER_STATE=existing
+$etcd -listen-client-urls http://10.0.1.13:2379 \
+  -advertise-client-urls http://10.0.1.13:2379 \
+  -listen-peer-urls http://10.0.1.13:2380 \
+  -initial-advertise-peer-urls http://10.0.1.13:2380 -data-dir %data_dir%
+
+
+==============================================================================
+==============================================================================
