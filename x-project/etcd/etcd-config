@@ -1,0 +1,309 @@
+==============================================================================
+
+etcd的配置标志
+
+
+etcd通过命令行标志和环境变量进行配置.在命令行中配置的选项集优于从环境变量中进
+行的配置起作用.
+对于命令行标志-my-flag的环境变量格式为ETCD_MY_FLAG.它适用于所有的标志.
+为了让etcd在linux中能够自动启动,强烈建议使用systemd unit进行管理.
+
+
+----------------------------------
+
+
+成员标志:
+
+
+-name
+  对于该成员更易读.
+  默认:"default"
+  环境变量:ETCD_NAME
+  这个值引用在节点-initial-cluster标志中自己完全列出的条目.例如:default=http:
+  //localhost:2380或者default=http://localhost:2380,default=http://localhost:
+  7001.假如使用静态启动,这需要匹配标志中使用的键值.
+
+-data-dir
+  数据目录的路径.
+  默认:"${name}.etcd"
+  环境变量:ETCD_DATA_DIR
+
+-wal-dir
+  专用的预写式日志(wal write ahead log)目录,假如这个标志被设置,etcd会将WAL文件
+  写入walDir而不是dataDir.这允许使用一个专用的磁盘,并且帮助避免了日志和其他I/O
+  之间的竞争.
+  默认:""
+  环境变量:ETCD_WAL_DIR
+
+-snapshot-count
+  提交的事物数触发将快照写入磁盘.
+  默认:"10000"
+  环境变量:ETCD_SNAPSHOT_COUNT
+
+-heartbeat-interval
+  以毫秒为单位的时间心跳间隔.
+  默认:"100"
+  环境变量:ETCD_HEARTBEAT_INTERVAL
+
+-election-timeout
+  以毫秒为单位的选举时间超时.
+  默认:"1000"
+  环境变量:ETCD_ELECTION_TIMEOUT
+
+-listen-peer-urls
+  监听对等流量的URL列表.这个标志告诉etcd接受来自对等由scheme://IP:port组合而成
+  的请求.Scheme既可以是http也可以是https.假如0.0.0.0这个特殊的作为IP,etcd将监
+  听所有接口上被给的端口.假如IP如同端口也被给予,etcd将监听被给的接口和端口.多
+  个URLs适用与给多个地址和端口去进行监听.这个etcd将会响应来自IP和端口的请求.
+  默认:"http://localhost:2380,http://localhost:7001"
+  环境变量:ETCD_LISTEN_PEER_URLS
+  例子:"http://10.0.0.1:2380"
+  无效例子:"http://example.com:2380"(对于绑定的域名是无效的)
+
+-listen-client-urls
+  监听客户端流量的URL列表.这个标志告诉etcd接受来自客户端由scheme://IP:port组合
+  而成的请求.Scheme既可以是http也可以是https.假如0.0.0.0这个特殊的作为IP,etcd
+  将监听所有接口上被给的端口.假如一个IP地址也同端口一样被给,etcd将在被给地址和
+  端口上进行监听.多个URLs适用与给多个地址和端口去进行监听.这个etcd将会响应来自
+  IP和端口的请求.
+  默认:"http://localhost:2379,http://localhost:4001"
+  环境变量:ETCD_LISTEN_CLIENT_URLS
+  例子:"http://10.0.0.1:2379"
+  无效例子:"http://example.com:2379"(对于绑定的域名是无效的)
+
+-max-snapshots
+  快照文件的最大保留数量(0为无限制)
+  默认:5
+  环境变量:ETCD_MAX_SNAPSHOTS
+  
+-max-wals
+  预写入日志(wal)文件最大的保留数量(0为无限制)
+  默认:5
+  环境变量:ETCD_MAX_WALS
+
+-cors
+  对于跨原始资源分享(cross-origin resource sharing)的逗号分隔符的原始白名单.
+  默认:none
+  环境变量:ETCD_CORS
+
+
+----------------------------------------
+
+
+集群标志:
+
+
+-initial 
+  这个前缀标志在引导(static bootstrap,discovery-service bootstrap or runtime
+  reconfiguration)一个新成员,当重新启动一个已经存在的成员的时候忽略.
+
+-discovery
+  这个前缀标志在使用发现服务的时候需要被设置.
+
+-initial-advertise-peer-urls
+  将成员对等URLs的列表公布给集群的其余部分.那些地址被用来在集群中进行etcd的数
+  据交换.至少有一个可以路由到集群的其它成员.那些URLs可以包含域名.
+  默认:"http://localhost:2380,http://localhost:7001"
+  环境变量:ETCD_INITIAL_ADVERTISE_PEER_URLS
+  例子:"http://example.com:2380,http://10.0.0.1:2380"
+
+-initial-cluster
+  初始集群的引导配置.
+  默认:"default=http://localhost:2380,default=http://localhost:7001"
+  环境变量:ETCD_INITIAL_CLUSTER
+  这个键是-flag标志为每个节点提供的值.对于这个键默认使用default,因为对于这个标
+  志-flag是default.
+
+-initial-cluster-token
+  初始化在etcd集群的引导过程中的令牌.
+  默认:"etcd-cluster"
+  环境变量:ETCD_INITIAL_CLUSTER_TOKEN
+
+-advertise-client-urls
+  将成员的客户端URLs列表公布给集群的其余部分.那些URLs可以包含域名.
+  默认:"http://localhost:2379,http://localhost:4001"
+  环境变量:ETCD_ADVERTISE_CLIENT_URLS
+  例子:"http://example.com:2379,http://10.0.0.1:2379"
+  当从一个集群成员要将类似与http://localhost:2379的URLs公布出去要小心,这使用了
+  etcd的代理特性.这引起了一个循环,因为这将会重定向给自己直到自己的资源(内存,文
+  件描述符)最终被耗尽.
+
+-discovery
+  发现URL以用来引导集群.
+  默认:none
+  环境变量:ETCD_DISVOVERY
+
+-discovery-srv
+  使用DNS srv域来引导集群.
+  默认:none
+  环境变量:ETCD_DISCOVERY_SRV
+
+-discovery-fallback
+  当服务发现失败时出现预期的行为("exit"或者"proxy").
+  默认:"proxy"
+  环境变量:ETCD_DISCOVERY_FALLBACK
+
+-discovery-proxy
+  使用HTTP代理去进行服务发现.
+  默认:none
+  环境变量:ETCD_DISCOVERY_PROXY
+
+
+---------------------------------------
+
+
+代理标志:
+
+
+这个-proxy前缀标志在代理模式中去配置etcd.
+
+-proxy
+  代理模式的设置("off","readonly"或者"on")
+  默认:"off:
+  环境变量:ETCD_PROXY
+
+-proxy-failure-wait
+  在重新考虑代理请求之前,在处于失败状态以毫秒为单位的时间点将会保持.
+  默认:5000
+  环境变量:ETCD_PROXY_FAILURE_WAIT
+
+-proxy-refresh-interval
+  时间(毫秒)端点的刷新时间间隔.
+  默认:30000
+  环境变量:ETCD_PROXY_REFRESH_INTERVAL
+
+-proxy-dial-timeout
+  拨号超时时间(0是禁止超时)
+  默认:1000
+  环境变量:ETCD_PROXY_DIAL_TIMEOUT
+
+-proxy-write-timeout
+  写超时(0是禁止超时)
+  默认:5000
+  环境变量:ETCD_PROXY_WRITE_TIMEOUT
+
+-proxy-read-timeout
+  读超时(0是禁止超时)
+  假如使用监控这个值,他不会发生变化,因为这种使用的是长轮询的请求.
+  默认:0
+  环境变量:ETCD_PROXY_READ_TIMEOUT
+
+
+------------------------------------
+
+
+安全标志:
+
+
+这个安全标志用于帮助建立一个安全的etcd集群.
+
+-ca-file [DEPRECATED]
+  客户端服务TLS CA文件的路径.
+  -ca-file ca.crt能够被-trusted-ca-file ca.crt -client-cert-auth替换,作用一样.
+  默认:none
+  环境变量:ETCD_CA_FILE
+
+-cert-file
+  客户端服务TLS cert文件的路径.
+  默认:none
+  环境变量:ETCD_CERT_FILE
+
+-key-file
+  客户端TLS key文件的路径.
+  默认:none
+  环境变量:ETCD_KEY_FILE
+
+-client-cert-auth
+  启动客户端cert认证.
+  默认:false
+  环境变量:ETCD_CLIENT_CERT_AUTH
+
+-trusted-ca-file
+  客户端服务TLS信任的CA key文件的路径.
+  默认:none
+  环境变量:ETCD_TRUSTED_CA_FILE
+
+-peer-ca-file [DEPRECATED]
+  对等服务TLS CA文件路径.
+  -peer-ca-file ca.crt和-peer-trusted-ca-file ca.crt -peer-client-cert-auth一样.
+  默认:none
+  环境标量:ETCD_PEER_CA_FILE
+
+-peer-cert-file
+  对等服务TLS cert文件路径.
+  默认:none
+  环境变量:ETCD_PEER_CERT_FILE
+
+-peer-key-file
+  对等服务TLS key文件路径.
+  默认:none
+  环境变量:ETCD_PEER_KEY_FILE
+
+-peer-client-cert-auth
+  启用对等客户端cert认证.
+  默认:false
+  环境变量:ETCD_PEER_CLIENT_CERT_AUTH
+
+-peer-trusted-ca-file
+  对等服务TLS服务信任的CA文件路径.
+  默认:none
+  环境变量:ETCD_PEER_TRUSTED_CA_FILE
+
+
+-----------------------------------------
+
+
+日志标记:
+
+
+-debug
+  对于所有的子包放弃默认的日志等级改为DEBUG.
+  默认:false(INFO for all packages)
+  环境变量:ETCD_DEBUG
+
+-log-package-levels
+  设置个别etcd子包的日志到特殊等级.例子:etcdserver-WARNING,security=DEBUG
+  默认:none(INFO for all packages)
+  环境变量:ETCD_LOG_PACKAGE_LEVELS
+
+
+-------------------------------------
+
+
+不安全标志:
+
+
+当要使用不安全标志的时候要注意,因为这将打破由一致性协议提供的担保.例如,如果集
+群中的其它成员还活着,他将引起恐慌.
+
+-force-new-cluster
+  强制创建一个新的一个成员的集群.他将提交配置变更强制移除所有在集群中存在的成
+  员并添加自己.他需要设置一个备份恢复.
+  默认:false
+  环境变量:ETCD_FORCE_NEW_CLUSTER
+
+
+---------------------------------------------
+
+
+实验性标志:
+
+
+-experimental-v3demo
+  启用实验性的v3 demo API.
+  默认:false
+  环境变量:ETCD_EXPERIMENTAL_V3DEMO
+
+
+----------------------------------------------
+
+
+杂项标志:
+
+-version
+  打印版本并退出.
+  默认:false
+
+
+==============================================================================
+==============================================================================
