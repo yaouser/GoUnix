@@ -1,0 +1,315 @@
+==============================================================================
+
+etcd集群指导
+
+
+概览
+
+静态的启动一个集群需要在集群中的成员相互认识.在大部分情况下,你可能不能提前知道
+集群中成员的IP地址.在那些情况下,你在服务发现的帮助下,可以自举一个一个etcd集群.
+
+一旦这个etcd集群起来运行,就通过运行时再配置(runtime reconfiguration)来添加和删
+除成员.
+
+这个指导对于引导一个etcd集群涵盖了下列机制:
+  Static
+  etcd Discovery
+  DNS Discovery
+
+每种引导机制都将用于创建一个包含下列三台机器的etcd集群:
+NAME                 ADDRESS                HOSTNAME
+---------------------------------------------------------------
+infra0              10.0.1.10               infra0.example.com
+infra1              10.0.1.11               infra1.example.com
+infra2              10.0.1.12               infra2.example.com
+
+
+--------------------------------------------------------------------
+
+
+Static(静态)
+
+
+正如我们所知道的在启动之前需要知道集群的大小,集群的成员及地址.我们需要使用一个
+通过initial-cluster的标志设置的离线引导配置.每台机器都需要使用下列的命令行或者
+是环境变量:
+ETCD_INITIAL_CLUSTER="infra0=http://10.0.1.10:2380,infra1=http://10.0.1.11:2380,
+infra2=http://10.0.1.12:2380:
+ETCD_INITIAL_CLUSTER_STATE=new
+或者
+-initial-cluster infra0=http://10.0.1.10:2380,infra1=http://10.0.1.11:2380,
+infra2=http://10.0.1.12:2380 -initial-cluster-state new
+
+注意initial-cluster的特殊URLs被公布给对等的URLs.例如,他们将配置在各个节点上的
+inintial-advertise-peer-urls的值.
+
+假如你在使用相同的配置来管理多个集群(或者创建和摧毁单个集群),强烈建议在不同的
+集群中使用特殊唯一的initial-cluster-token.通过这样,etcd能够在使用相同配置的集
+群中为每个集群和成员生成唯一的IDs.这能够保证跨级群互动.
+
+etcd监听listen-client-urls接受客户端的流量.etcd成员公布advertise-client-urls上
+的URLs给其它的成员端,代理端和客户端.先确保从客户端能抵达advertise-client-urls,
+通常的错误是当要从远程客户端登陆etcd时,设置advertise-client-urls为localhost默
+认的.
+
+在每个机器上,你应该都以下列的标志启动etcd:
+
+$etcd -name infra0 -initial-advertise-peer-urls http://10.0.1.10:2380 \
+  -listen-peer-urls http://10.0.1.10:2380 \
+  -listen-client-urls http://10.0.1.10:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.10:2379 \
+  -initial-cluster-token etcd-cluster-1 \
+  -initial-cluster infra0=http://10.0.1.10:2380,infra1=http://10.0.1.11:2380,infra2=http://10.0.1.12:2380 \
+  -initial-cluster-state new
+
+$etcd -name infra1 -initial-advertise-peer-urls http://10.0.1.11:2380 \
+  -listen-peer-urls http://10.0.1.11:2380 \
+  -listen-client-urls http://10.0.1.11:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.11:2379 \
+  -initial-cluster-token etcd-cluster-1 \
+  -initial-cluster infra0=http://10.0.1.10:2380,infra1=http://10.0.1.11:2380,infra2=http://10.0.1.12:2380 \
+  -initial-cluster-state new
+
+$etcd -name infra2 -initial-advertise-peer-urls http://10.0.1.12:2380 \
+  -listen-peer-urls http://10.0.1.12:2380 \
+  -listen-client-urls http://10.0.1.12:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.12:2379 \
+  -initial-cluster-token etcd-cluster-1 \
+  -initial-cluster infra0=http://10.0.1.10:2380,infra1=http://10.0.1.11:2380,infra2=http://10.0.1.12:2380 \
+  -initial-cluster-state new
+
+在这里以命令行标志的-initial-cluster在etcd引导启动中忽略了,在启动引导过程后,可
+以自由的删除环境变量和命令行标志.假如需要在随后改变配置(例如:从集群中添加或者
+删除成员),可以参考运行时配置(runtime configuration)指导.
+
+
+错误示例(Error Cases)
+
+错误:
+-initial-cluster infra0=http://10.0.1.10:2380
+正确:
+-initial-cluster infra0=http://10.0.1.10:2380,infra1=http://10.0.1.11:2380,infra2=http://10.0.1.12:2380
+
+错误:
+在不同集群中使用相同的配置没有使用-initial-cluster-token标志.
+正确:
+-initial-cluster-token etcd-cluster-1
+
+
+--------------------------------------------
+
+
+发现(Discovery)
+
+
+在许多情况下,你不能提前知道对等集群的IPs.这在使用云服务提供商或者使用DHCP的网
+络的时候很常见.在不使用静态配置的情况下,你可以使用一个已经存在的etcd集群来引导
+一个新的.我们叫这个过程为"发现".
+
+有两个方法被用来发现:
+  etcd discovery service(etcd服务发现)
+  DNS SRV records(DNS SRV记录)
+
+
+1)etcd服务发现
+
+
+发现URL的生命
+-------------
+
+一个发现URL标示了唯一的etcd集群.代替重复使用一个URL,你应该为新的集群创建一个发
+现URLs.
+
+此外,发现URLs仅仅被用在初始化引导一个集群的时候.在集群已经运行之后,为了改变集
+群中的关系,可以参看运行时重新配置(runtime reconfiguration)指导.
+
+自定义etcd发现服务
+------------------
+
+发现使用一个已经存在的集群去引导自身.假如要使用自己的etcd集群,需要如下创建一个
+URL:
+$curl -X PUT https://myetcd.local/v2/keys/discovery/6c007a14875d53d9bf0ef5a6fc0257c817f0fb83/_config/size -d value=3
+
+现在对于每个成员我们需要使用与etcd相关的标志:
+
+$etcd -name infra0 -initial-advertise-peer-urls http://10.0.1.10:2380 \
+  -listen-peer-urls http://10.0.1.10:2380 \
+  -listen-client-urls http://10.0.1.10:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.10:2379 \
+  -discovery https://myetcd.local/v2/keys/discovery/6c007a14875d53d9bf0ef5a6fc0257c817f0fb83
+
+$etcd -name infra1 -initial-advertise-peer-urls http://10.0.1.11:2380 \
+  -listen-peer-urls http://10.0.1.11:2380 \
+  -listen-client-urls http://10.0.1.11:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.11:2379 \
+  -discovery https://myetcd.local/v2/keys/discovery/6c007a14875d53d9bf0ef5a6fc0257c817f0fb83
+
+$etcd -name infra2 -initial-advertise-peer-urls http://10.0.1.12:2380 \
+  -listen-peer-urls http://10.0.1.12:2380 \
+  -listen-client-urls http://10.0.1.12:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.12:2379 \
+  -discovery https://myetcd.local/v2/keys/discovery/6c007a14875d53d9bf0ef5a6fc0257c817f0fb83
+
+这将让每一台机器在自定义的etcd发现服务上来注册自己,一旦所有的机器被注册完毕,这
+个集群就可以启动了.
+
+公共etcd发现服务
+----------------
+
+$curl https://discovery.etcd.io/new?size=3
+https://discovery.etcd.io/3e86b59982e49066c5d813af1c2e2579cbf573de
+
+这将创建一个初始化三个成员的集群
+
+ETCD_DISCOVERY=https://discovery.etcd.io/3e86b59982e49066c5d813af1c2e2579cbf573de
+-discovery https://discovery.etcd.io/3e86b59982e49066c5d813af1c2e2579cbf573de
+
+现在对于每一台机器需要使用相关的标志启动:
+
+$etcd -name infra0 -initial-advertise-peer-urls http://10.0.1.10:2380 \
+  -listen-peer-urls http://10.0.1.10:2380 \
+  -listen-client-urls http://10.0.1.10:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.10:2379 \
+  -discovery https://discovery.etcd.io/3e86b59982e49066c5d813af1c2e2579cbf573de
+
+$etcd -name infra1 -initial-advertise-peer-urls http://10.0.1.11:2380 \
+  -listen-peer-urls http://10.0.1.11:2380 \
+  -listen-client-urls http://10.0.1.11:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.11:2379 \
+  -discovery https://discovery.etcd.io/3e86b59982e49066c5d813af1c2e2579cbf573de
+
+$etcd -name infra2 -initial-advertise-peer-urls http://10.0.1.12:2380 \
+  -listen-peer-urls http://10.0.1.12:2380 \
+  -listen-client-urls http://10.0.1.12:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.12:2379 \
+  -discovery https://discovery.etcd.io/3e86b59982e49066c5d813af1c2e2579cbf573de
+
+你可以使用环境变量ETCD_DISCOVERY_PROXY,来使用HTTP代理来连接到发现服务.
+
+错误和警告示例
+--------------
+
+(发现服务错误)
+$etcd -name infra0 -initial-advertise-peer-urls http://10.0.1.10:2380 \
+  -listen-peer-urls http://10.0.1.10:2380 \
+  -listen-client-urls http://10.0.1.10:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.10:2379 \
+  -discovery https://discovery.etcd.io/3e86b59982e49066c5d813af1c2e2579cbf573de
+etcd: error: the cluster doesn’t have a size configuration value in https://discovery.etcd.io/3e86b59982e49066c5d813af1c2e2579cbf573de/_config
+exit 1
+
+(用户错误)
+$etcd -name infra0 -initial-advertise-peer-urls http://10.0.1.10:2380 \
+  -listen-peer-urls http://10.0.1.10:2380 \
+  -listen-client-urls http://10.0.1.10:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.10:2379 \
+  -discovery https://discovery.etcd.io/3e86b59982e49066c5d813af1c2e2579cbf573de \
+  -discovery-fallback exit
+etcd: discovery: cluster is full
+exit 1
+
+(警告)
+$etcd -name infra0 -initial-advertise-peer-urls http://10.0.1.10:2380 \
+  -listen-peer-urls http://10.0.1.10:2380 \
+  -listen-client-urls http://10.0.1.10:2379,http://127.0.0.1:2379 \
+  -advertise-client-urls http://10.0.1.10:2379 \
+  -discovery https://discovery.etcd.io/3e86b59982e49066c5d813af1c2e2579cbf573de
+etcdserver: discovery token ignored since a cluster has already been initialized. Valid log found at /var/lib/etcd
+
+
+2)DNS发现
+
+
+DNS SRV记录能够被用作一个发现机制.这个-discovery-srv标志能够被使用来设置DNS域
+名,这个域名能够被这个发现SRV记录找到.下列的DNS SRV记录能够按顺序的查找:
+  _etcd-server-ssl._tcp.example.com
+  _etcd-server._tcp.example.com
+
+假如_etcd-server-ssl._tcp.example.com能够被发现,etcd将通过SSL去引导过程.
+
+创建DNS SRV记录
+---------------
+
+$dig +noall +answer SRV _etcd-server._tcp.example.com
+_etcd-server._tcp.example.com. 300 IN   SRV 0 0 2380 infra0.example.com.
+_etcd-server._tcp.example.com. 300 IN   SRV 0 0 2380 infra1.example.com.
+_etcd-server._tcp.example.com. 300 IN   SRV 0 0 2380 infra2.example.com.
+
+$dig +noall +answer infra0.example.com infra1.example.com infra2.example.com
+infra0.example.com. 300 IN  A   10.0.1.10
+infra1.example.com. 300 IN  A   10.0.1.11
+infra2.example.com. 300 IN  A   10.0.1.12
+
+通过DNS引导etcd集群
+-------------------
+
+etcd集群成员能够监听域名或IP地址,这个引导过程将解析DNS A记录.
+在-initial-advertise-peer-urls中的解析地址必须在SRV目标中匹配被解析地址中的一
+个.假如他属于定义在集群中的SRV记录,这个etcd成员可以读取找到的解析地址.
+
+$etcd -name infra0 \
+-discovery-srv example.com \
+-initial-advertise-peer-urls http://infra0.example.com:2380 \
+-initial-cluster-token etcd-cluster-1 \
+-initial-cluster-state new \
+-advertise-client-urls http://infra0.example.com:2379 \
+-listen-client-urls http://infra0.example.com:2379 \
+-listen-peer-urls http://infra0.example.com:2380
+
+$etcd -name infra1 \
+-discovery-srv example.com \
+-initial-advertise-peer-urls http://infra1.example.com:2380 \
+-initial-cluster-token etcd-cluster-1 \
+-initial-cluster-state new \
+-advertise-client-urls http://infra1.example.com:2379 \
+-listen-client-urls http://infra1.example.com:2379 \
+-listen-peer-urls http://infra1.example.com:2380
+
+$etcd -name infra2 \
+-discovery-srv example.com \
+-initial-advertise-peer-urls http://infra2.example.com:2380 \
+-initial-cluster-token etcd-cluster-1 \
+-initial-cluster-state new \
+-advertise-client-urls http://infra2.example.com:2379 \
+-listen-client-urls http://infra2.example.com:2379 \
+-listen-peer-urls http://infra2.example.com:2380
+
+也可以使用IP地址代替域名来引导这个集群:
+
+$etcd -name infra0 \
+-discovery-srv example.com \
+-initial-advertise-peer-urls http://10.0.1.10:2380 \
+-initial-cluster-token etcd-cluster-1 \
+-initial-cluster-state new \
+-advertise-client-urls http://10.0.1.10:2379 \
+-listen-client-urls http://10.0.1.10:2379 \
+-listen-peer-urls http://10.0.1.10:2380
+
+$etcd -name infra1 \
+-discovery-srv example.com \
+-initial-advertise-peer-urls http://10.0.1.11:2380 \
+-initial-cluster-token etcd-cluster-1 \
+-initial-cluster-state new \
+-advertise-client-urls http://10.0.1.11:2379 \
+-listen-client-urls http://10.0.1.11:2379 \
+-listen-peer-urls http://10.0.1.11:2380
+
+$etcd -name infra2 \
+-discovery-srv example.com \
+-initial-advertise-peer-urls http://10.0.1.12:2380 \
+-initial-cluster-token etcd-cluster-1 \
+-initial-cluster-state new \
+-advertise-client-urls http://10.0.1.12:2379 \
+-listen-client-urls http://10.0.1.12:2379 \
+-listen-peer-urls http://10.0.1.12:2380
+
+etcd代理配置
+------------
+
+在代理模式下进行域名发现配置
+
+$etcd --proxy on -discovery-srv example.com
+
+
+==============================================================================
+==============================================================================
