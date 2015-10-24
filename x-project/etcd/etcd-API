@@ -1,0 +1,550 @@
+==============================================================================
+
+Etcd API
+
+
+etcd中的API大致分为三种,一种为进行键值操作的API即客户端键值操作,另一种为操作集
+群中成员的API即管理员操作,还有一种为认证安全API.
+
+
+----------------------------------
+
+成员键值API:
+
+1)获得etcd的版本
+curl -L http://127.0.0.1:2379/version
+
+2)键值的操作
+
+2.1)设置键值
+curl http://127.0.0.1:2379/v2/keys/message -XPUT -d value="Hello world"
+{
+    "action": "set",
+    "node": {
+        "createdIndex": 2,
+        "key": "/message",
+        "modifiedIndex": 2,
+        "value": "Hello world"
+    }
+}
+
+2.2)设置键值
+curl http://127.0.0.1:2379/v2/keys/message
+{
+    "action": "get",
+    "node": {
+        "createdIndex": 2,
+        "key": "/message",
+        "modifiedIndex": 2,
+        "value": "Hello world"
+    }
+}
+
+2.3)改变键值
+curl http://127.0.0.1:2379/v2/keys/message -XPUT -d value="Hello etcd"
+{
+    "action": "set",
+    "node": {
+        "createdIndex": 3,
+        "key": "/message",
+        "modifiedIndex": 3,
+        "value": "Hello etcd"
+    },
+    "prevNode": {
+        "createdIndex": 2,
+        "key": "/message",
+        "value": "Hello world",
+        "modifiedIndex": 2
+    }
+}
+
+2.4)删除一个键值
+curl http://127.0.0.1:2379/v2/keys/message -XDELETE
+{
+    "action": "delete",
+    "node": {
+        "createdIndex": 3,
+        "key": "/message",
+        "modifiedIndex": 4
+    },
+    "prevNode": {
+        "key": "/message",
+        "value": "Hello etcd",
+        "modifiedIndex": 3,
+        "createdIndex": 3
+    }
+}
+
+2.5)使用TTL键值
+curl http://127.0.0.1:2379/v2/keys/foo -XPUT -d value=bar -d ttl=5
+{
+    "action": "set",
+    "node": {
+        "createdIndex": 5,
+        "expiration": "2013-12-04T12:01:21.874888581-08:00",
+        "key": "/foo",
+        "modifiedIndex": 5,
+        "ttl": 5,
+        "value": "bar"
+    }
+}
+
+2.6)等待变更
+
+在第一个终端中等待变更
+curl http://127.0.0.1:2379/v2/keys/foo?wait=true
+
+在第二个终端中设置/foo为bar
+curl http://127.0.0.1:2379/v2/keys/foo -XPUT -d value=bar
+{
+    "action": "set",
+    "node": {
+        "createdIndex": 7,
+        "key": "/foo",
+        "modifiedIndex": 7,
+        "value": "bar"
+    },
+    "prevNode": {
+        "createdIndex": 6,
+        "key": "/foo",
+        "modifiedIndex": 6,
+        "value": "bar"
+    }
+}
+
+监控事件索引
+
+curl 'http://127.0.0.1:2379/v2/keys/foo?wait=true&waitIndex=8'
+{"errorCode":401,"message":"The event in requested index is outdated and 
+cleared","cause":"the requested history has been cleared [1008/8]","index":2007}
+
+curl 'http://127.0.0.1:2379/v2/keys/foo' -vv
+< HTTP/1.1 200 OK
+< Content-Type: application/json
+< X-Etcd-Cluster-Id: 7e27652122e8b2ae
+< X-Etcd-Index: 2007
+< X-Raft-Index: 2615
+< X-Raft-Term: 2
+< Date: Mon, 05 Jan 2015 18:54:43 GMT
+< Transfer-Encoding: chunked
+< 
+{"action":"get","node":{"key":"/foo","value":"bar","modifiedIndex":7,
+"createdIndex":7}}
+
+2.7)原子的创建有序键值
+
+curl http://127.0.0.1:2379/v2/keys/queue -XPOST -d value=Job1
+{
+    "action": "create",
+    "node": {
+        "createdIndex": 6,
+        "key": "/queue/00000000000000000006",
+        "modifiedIndex": 6,
+        "value": "Job1"
+    }
+}
+
+curl http://127.0.0.1:2379/v2/keys/queue -XPOST -d value=Job2
+{
+    "action": "create",
+    "node": {
+        "createdIndex": 29,
+        "key": "/queue/00000000000000000029",
+        "modifiedIndex": 29,
+        "value": "Job2"
+    }
+}
+
+curl -s 'http://127.0.0.1:2379/v2/keys/queue?recursive=true&sorted=true'
+{
+    "action": "get",
+    "node": {
+        "createdIndex": 2,
+        "dir": true,
+        "key": "/queue",
+        "modifiedIndex": 2,
+        "nodes": [
+            {
+                "createdIndex": 2,
+                "key": "/queue/00000000000000000002",
+                "modifiedIndex": 2,
+                "value": "Job1"
+            },
+            {
+                "createdIndex": 3,
+                "key": "/queue/00000000000000000003",
+                "modifiedIndex": 3,
+                "value": "Job2"
+            }
+        ]
+    }
+}
+
+2.8)原子比较和交换
+prevValue是键值的前一个值
+prevIndex是键值的前一个值的索引
+curl http://127.0.0.1:2379/v2/keys/foo -XPUT -d value=one
+curl http://127.0.0.1:2379/v2/keys/foo?prevIndex=1 -XDELETE
+curl http://127.0.0.1:2379/v2/keys/foo?prevValue=one -XDELETE
+
+2.9)原子比较和删除
+curl http://127.0.0.1:2379/v2/keys/dir -XPUT -d dir=true
+{
+    "action": "set",
+    "node": {
+        "createdIndex": 30,
+        "dir": true,
+        "key": "/dir",
+        "modifiedIndex": 30
+    }
+}
+
+2.10)创建目录
+curl http://127.0.0.1:2379/v2/keys/foo_dir/foo -XPUT -d value=bar
+{
+    "action": "set",
+    "node": {
+        "createdIndex": 2,
+        "key": "/foo_dir/foo",
+        "modifiedIndex": 2,
+        "value": "bar"
+    }
+}
+
+2.11)列出目录
+curl http://127.0.0.1:2379/v2/keys/foo_dir/foo -XPUT -d value=bar
+{
+    "action": "set",
+    "node": {
+        "createdIndex": 2,
+        "key": "/foo_dir/foo",
+        "modifiedIndex": 2,
+        "value": "bar"
+    }
+}
+curl http://127.0.0.1:2379/v2/keys/
+{
+    "action": "get",
+    "node": {
+        "key": "/",
+        "dir": true,
+        "nodes": [
+            {
+                "key": "/foo_dir",
+                "dir": true,
+                "modifiedIndex": 2,
+                "createdIndex": 2
+            },
+            {
+                "key": "/foo",
+                "value": "two",
+                "modifiedIndex": 1,
+                "createdIndex": 1
+            }
+        ]
+    }
+}
+curl http://127.0.0.1:2379/v2/keys/?recursive=true
+{
+    "action": "get",
+    "node": {
+        "key": "/",
+        "dir": true,
+        "nodes": [
+            {
+                "key": "/foo_dir",
+                "dir": true,
+                "nodes": [
+                    {
+                        "key": "/foo_dir/foo",
+                        "value": "bar",
+                        "modifiedIndex": 2,
+                        "createdIndex": 2
+                    }
+                ],
+                "modifiedIndex": 2,
+                "createdIndex": 2
+            },
+            {
+                "key": "/foo",
+                "value": "two",
+                "modifiedIndex": 1,
+                "createdIndex": 1
+            }
+        ]
+    }
+}
+
+2.12)删除目录
+curl 'http://127.0.0.1:2379/v2/keys/foo_dir?dir=true' -XDELETE
+{
+    "action": "delete",
+    "node": {
+        "createdIndex": 30,
+        "dir": true,
+        "key": "/foo_dir",
+        "modifiedIndex": 31
+    },
+    "prevNode": {
+        "createdIndex": 30,
+        "key": "/foo_dir",
+        "dir": true,
+        "modifiedIndex": 30
+    }
+}
+curl http://127.0.0.1:2379/v2/keys/dir?recursive=true -XDELETE
+{
+    "action": "delete",
+    "node": {
+        "createdIndex": 10,
+        "dir": true,
+        "key": "/dir",
+        "modifiedIndex": 11
+    },
+    "prevNode": {
+        "createdIndex": 10,
+        "dir": true,
+        "key": "/dir",
+        "modifiedIndex": 10
+    }
+}
+
+2.13)创建一个隐藏的节点
+curl http://127.0.0.1:2379/v2/keys/_message -XPUT -d value="Hello hidden world"
+{
+    "action": "set",
+    "node": {
+        "createdIndex": 3,
+        "key": "/_message",
+        "modifiedIndex": 3,
+        "value": "Hello hidden world"
+    }
+}
+curl http://127.0.0.1:2379/v2/keys/message -XPUT -d value="Hello world"
+{
+    "action": "set",
+    "node": {
+        "createdIndex": 4,
+        "key": "/message",
+        "modifiedIndex": 4,
+        "value": "Hello world"
+    }
+}
+curl http://127.0.0.1:2379/v2/keys/
+{
+    "action": "get",
+    "node": {
+        "dir": true,
+        "key": "/",
+        "nodes": [
+            {
+                "createdIndex": 2,
+                "dir": true,
+                "key": "/foo_dir",
+                "modifiedIndex": 2
+            },
+            {
+                "createdIndex": 4,
+                "key": "/message",
+                "modifiedIndex": 4,
+                "value": "Hello world"
+            }
+        ]
+    }
+}
+
+2.14)给一个文件设置键值
+echo "Hello\nWorld" > afile.txt
+curl http://127.0.0.1:2379/v2/keys/afile -XPUT --data-urlencode value@afile.txt
+{
+    "action": "get",
+    "node": {
+        "createdIndex": 2,
+        "key": "/afile",
+        "modifiedIndex": 2,
+        "value": "Hello\nWorld\n"
+    }
+}
+
+3)统计
+
+3.1)领导统计
+curl http://127.0.0.1:2379/v2/stats/leader
+{
+    "followers": {
+        "6e3bd23ae5f1eae0": {
+            "counts": {
+                "fail": 0,
+                "success": 745
+            },
+            "latency": {
+                "average": 0.017039507382550306,
+                "current": 0.000138,
+                "maximum": 1.007649,
+                "minimum": 0,
+                "standardDeviation": 0.05289178277920594
+            }
+        },
+        "a8266ecf031671f3": {
+            "counts": {
+                "fail": 0,
+                "success": 735
+            },
+            "latency": {
+                "average": 0.012124141496598642,
+                "current": 0.000559,
+                "maximum": 0.791547,
+                "minimum": 0,
+                "standardDeviation": 0.04187900156583733
+            }
+        }
+    },
+    "leader": "924e2e83e93f2560"
+}
+
+3.2)自身统计
+curl http://127.0.0.1:2379/v2/stats/self
+{
+    "id": "eca0338f4ea31566",
+    "leaderInfo": {
+        "leader": "8a69d5f6b7814500",
+        "startTime": "2014-10-24T13:15:51.186620747-07:00",
+        "uptime": "10m59.322358947s"
+    },
+    "name": "node3",
+    "recvAppendRequestCnt": 5944,
+    "recvBandwidthRate": 570.6254930219969,
+    "recvPkgRate": 9.00892789741075,
+    "sendAppendRequestCnt": 0,
+    "startTime": "2014-10-24T13:15:50.072007085-07:00",
+    "state": "StateFollower"
+}
+
+3.3)存储统计
+curl http://127.0.0.1:2379/v2/stats/store
+{
+    "compareAndSwapFail": 0,
+    "compareAndSwapSuccess": 0,
+    "createFail": 0,
+    "createSuccess": 2,
+    "deleteFail": 0,
+    "deleteSuccess": 0,
+    "expireCount": 0,
+    "getsFail": 4,
+    "getsSuccess": 75,
+    "setsFail": 2,
+    "setsSuccess": 4,
+    "updateFail": 0,
+    "updateSuccess": 0,
+    "watchers": 0
+}
+
+
+-------------------------------------------------
+
+成员API:
+
+1)列出成员
+curl http://10.0.0.10:2379/v2/members
+{
+    "members": [
+        {
+            "id": "272e204152",
+            "name": "infra1",
+            "peerURLs": [
+                "http://10.0.0.10:2380"
+            ],
+            "clientURLs": [
+                "http://10.0.0.10:2379"
+            ]
+        },
+        {
+            "id": "2225373f43",
+            "name": "infra2",
+            "peerURLs": [
+                "http://10.0.0.11:2380"
+            ],
+            "clientURLs": [
+                "http://10.0.0.11:2379"
+            ]
+        },
+    ]
+}
+
+2)添加成员
+curl http://10.0.0.10:2379/v2/members -XPOST \
+-H "Content-Type: application/json" -d '{"peerURLs":["http://10.0.0.10:2380"]}'
+{
+    "id": "3777296169",
+    "peerURLs": [
+        "http://10.0.0.10:2380"
+    ]
+}
+
+3)删除成员
+curl http://10.0.0.10:2379/v2/members/272e204152 -XDELETE
+
+4)改变对等成员的urls
+curl http://10.0.0.10:2379/v2/members/272e204152 -XPUT \
+-H "Content-Type: application/json" -d '{"peerURLs":["http://10.0.0.10:2380"]}'
+
+
+---------------------------------------------------------
+
+认证安全API
+
+1)得到认证(auth)的状态
+GET /v2/auth/enable
+
+2)启用认证
+PUT /v2/auth/enable
+
+3)禁用认证
+DELETE /v2/auth/enable
+
+
+用户JSON对象
+{
+  "user": "userName",
+  "password": "password",
+  "roles": [
+    "role1",
+    "role2"
+  ],
+  "grant": [],
+  "revoke": []
+}
+
+
+4)获得认证的用户列表
+GET/HEAD /v2/auth/users
+
+5)获得用户细节
+GET/HEAD /v2/auth/users/alice
+
+6)创建或更新一个用户
+PUT /v2/auth/users/charlie
+
+7)删除一个用户
+DELETE /v2/auth/users/charlie
+
+
+角色
+{ "role" : "fleet", "permissions" : { "kv" : { "read" : [ "/fleet/" ], 
+"write": [ "/fleet/" ] } }, "grant" : {"kv": {...}}, "revoke": {"kv": {...}} }
+
+
+8)获得角色列表
+GET/HEAD /v2/auth/roles
+
+9)获得角色细节
+GET/HEAD /v2/auth/roles/fleet
+
+10)创建或更新一个角色
+PUT /v2/auth/roles/rkt
+
+11)删除一个角色
+DELETE /v2/auth/roles/rkt
+
+==============================================================================
+==============================================================================
