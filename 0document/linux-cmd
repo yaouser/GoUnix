@@ -24,6 +24,48 @@ iconv
 -s,--slient	关闭警告
 --verbose	打印进度信息
 ==============================================================================
+html与文本之间转换
+==================
+#!/bin/sh
+# h2t, convert all htm and html files of a directory to text 
+for file in `ls *.htm`
+do
+new=`basename $file htm`
+lynx -dump $file > ${new}txt 
+done
+#####
+for file in `ls *.html`
+do
+new=`basename $file html`
+lynx -dump $file > ${new}txt 
+done
+----------------------------
+substitute the word " at " for any " at " signs
+remove any 8-bit characters
+reduce lines with tabs and blanks to no space at all
+remove duplicate blank lines (leaving one between parapgraphs)
+place /UL P on remaining blank lines (paragraphing)
+remove the line breaks after the /UL P (ends up on next line)
+indent any Paragraphs (not lines) starting with a quote mark (and removes leading tabs and spaces)
+introduce a BR tag on any line starting with a hyphen (and removes leading tabs and spaces)
+convert http://URL to a link
+
+#!/bin/sh
+# t2h {$1} html-ize a text file and save as foo.htm
+NL="
+"
+cat $1 \
+| sed -e 's/ at / at /g' \
+| sed -e 's/[[:cntrl:]]/ /g'\
+| sed -e 's/^[[:space:]]*$//g' \
+| sed -e '/^$/{'"$NL"'N'"$NL"'/^\n$/D'"$NL"'}' \
+| sed -e 's/^$/<\/UL><P>/g' \
+| sed -e '/<P>$/{'"$NL"'N'"$NL"'s/\n//'"$NL"'}'\
+| sed -e 's/<P>[[:space:]]*"/<P><UL>"/' \
+| sed -e 's/^[[:space:]]*-/<BR> -/g' \
+| sed -e 's/http:\/\/[[:graph:]\.\/]*/<A HREF="&">[&]<\/A> /g'\
+                                > foo.htm
+==============================================================================
 curl命令
 ========
 -o/-O选项保存下载的文件到指定的文件中(可使用重定向字符输出)
