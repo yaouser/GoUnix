@@ -18,4 +18,4 @@ Go语言的命令行工具介绍,这个目录是fork于郝林的一个项目,由
 ##[X-Project](https://github.com/yaouser/GoUnix/tree/master/x-project)
 关于Go语言一些重量级应用的介绍和使用,如Docker Etcd Kubernetes .....
 QQ讨论群:361098506
-##正在寻找工作 Email:yaozhenqian2015@gmail.com
+##Email:yaozhenqian2015@gmail.com
